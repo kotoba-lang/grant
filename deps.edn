@@ -1,0 +1,21 @@
+;; The grant plane: who may do what, decided as pure data.
+;;
+;; Deliberately narrower than the repository it came out of. There is no Wasm
+;; runtime here and no engine dependency of any kind -- `aiueos.execute`'s
+;; Chicory dependency stayed with the machine, because deciding whether a
+;; component may run is not the same act as running it (root ADR-2608219500).
+;;
+;; `security` supplies redaction / ABAC / crypto-policy / hardware predicates;
+;; `abi` supplies the shared component contract. Nothing else is needed, and
+;; adding an engine here would put the decision plane behind one.
+{:paths ["src" "resources"]
+ :deps {io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
+                                        :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
+        io.github.kotoba-lang/abi {:git/url "https://github.com/kotoba-lang/abi.git"
+                                   :git/sha "32ee84b2efc92478c846629c8d8319280eed506c"}}
+ :aliases
+ {:test {:extra-paths ["test"]
+         :extra-deps {io.github.cognitect-labs/test-runner
+                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+         :main-opts ["-m" "cognitect.test-runner"]
+         :exec-fn cognitect.test-runner.api/test}}}

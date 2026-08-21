@@ -1,0 +1,80 @@
+;; The two remote authorities of ADR-0041, as checkable data.
+;;
+;; Storage authority is kotobase, inference authority is murakumo, and both
+;; arrive through the capability broker under the ADR-0030 origin allowlist.
+;; Nothing here opens a socket: a plan is a request this policy would allow and
+;; an admission is a verdict about a response a provider already received.
+[{:db/id -1
+  :aiueos.cloud/id :aiueos/default-cloud
+  :aiueos.cloud/source-files ["src/grant/cloud.cljc"]
+  :aiueos.cloud/hosted-provider "src/aiueos/provider/cloud.clj"
+  :aiueos.cloud/authorities
+  {:storage {:default-origin "https://kotobase.net" :owner "net-kotobase"}
+   :inference {:default-origin "https://api.murakumo.cloud"
+               :owner "kotoba-lang/murakumo"
+               :alias "murakumo-main"}}
+  :aiueos.cloud/decision-shapes #{:allow :deny}
+  :aiueos.cloud/deny-reasons #{:cid-unparsable :cid-not-raw :cid-not-sha256
+                               :origin-not-allowed :insecure-transport
+                               :no-trust-anchors :peer-unmeasured :peer-not-pinned
+                               :plan-not-allowed
+                               :response-not-ok :digest-missing :digest-mismatch
+                               :alias-unresolved :resolved-endpoint-not-allowed
+                               :model-is-alias-target :messages-missing}
+  :aiueos.cloud/cid-support
+  {:multibase #{:base32-lower} :version #{1} :multihash #{:sha2-256}
+   :codecs #{:raw :dag-pb :dag-cbor}
+   :multi-byte-codec-varint :refused
+   :note "kotoba-lang/io-multiformats is the workspace authority for this
+          format. What is inlined is the one shape kotobase and the IPFS
+          gateways emit, because aiueos is dependency-minimal by invariant."}
+  :aiueos.cloud/write-codec :raw
+  :aiueos.cloud/write-codec-authority "root ADR-2608148200: PUT /ipfs/:cid takes raw CIDv1 only"
+  :aiueos.cloud/response-without-digest :denied
+  :aiueos.cloud/resolved-endpoint-rechecked? true
+  :aiueos.cloud/request-model :alias
+  :aiueos.cloud/override-equal-to-alias-target :refused
+  :aiueos.cloud/url-checked-twice? true
+  :aiueos.cloud/transport-required :https
+  :aiueos.cloud/peer-trust {:model :spki-pin
+                            :digest :sha2-256
+                            :pinned :subject-public-key-info
+                            :policy-key :aiueos.cloud/trust-anchors
+                            :empty-set :deny
+                            :platform-trust-store :not-consulted
+                            :note "The pin is over the key, so certificate renewal
+                                   with the same key is not an event and a key
+                                   change is. An https plan with no anchors is
+                                   refused before the socket."}
+  :aiueos.cloud/plaintext-escape-hatch :aiueos.cloud/allow-insecure-origins
+  :aiueos.cloud/provider-faults #{:plan-not-allowed :net-denied
+                                  :response-too-large :request-failed}
+  :aiueos.cloud/provider-follows-redirects? false
+  :aiueos.cloud/provider-body-ceiling-bytes 4194304
+  :aiueos.cloud/assurance-gaps
+  ["This namespace does not hash. `admit-block` compares the digest a provider
+    reports against the digest the CID commits to; whether the provider really
+    hashed the bytes it received is the provider's claim, exactly as with
+    aiueos.ota's artifact digests."
+   "No transport exists underneath this. The bare-metal profile has no DHCP,
+    DNS, TLS or HTTP client (ADR-0041 gap ledger steps 1-5), so nothing in this
+    repository has yet reached kotobase.net or api.murakumo.cloud. These are the
+    decisions those steps will be wired underneath."
+   "The alias resolution response is trusted for its shape. Its endpoint is
+    re-checked against the allowlist, but nothing here authenticates the
+    resolver's answer -- that needs TLS, which is step 4."
+   "Request bodies are data, not wire bytes. Whether a provider serialises
+    :body the way the murakumo API expects is untested here."
+   "aiueos.policy/net-url-allowed? matches on host: it strips the scheme and the
+    port. The https requirement is enforced in aiueos.cloud rather than by the
+    allowlist, so an allowlist entry alone still does not distinguish
+    kotobase.net:443 from kotobase.net:8443."
+   "Peer trust is the policy's pin set and nothing else (ADR-0044); the JDK
+    default trust store is not consulted. What is unproved is the operational
+    half: no pin for the real kotobase.net or api.murakumo.cloud is recorded
+    anywhere, and how a pin reaches a device -- and how it rotates -- is not
+    decided. A pinning client with no pin distribution is a client that cannot
+    connect."
+   "There is no write path. PUT /ipfs/:cid needs a CACAO-authenticated caller
+    and no credential path exists here; plan-block-write is a decision with no
+    mechanism behind it yet."]}]
