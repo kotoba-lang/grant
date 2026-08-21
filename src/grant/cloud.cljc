@@ -37,7 +37,8 @@
   TLS and no HTTP client (ADR-0041's gap ledger, steps 1–5); this is the
   decision layer those steps will be wired underneath, and it is checkable
   before any of them exist."
-  (:require [grant.net :as net]
+  (:require [grant.json :as json]
+            [grant.net :as net]
             [grant.policy :as policy]
             [clojure.string :as str]))
 
@@ -55,8 +56,12 @@
   #{:cid-unparsable :cid-not-raw :cid-not-sha256
     :origin-not-allowed :insecure-transport :plan-not-allowed
     :response-not-ok :digest-missing :digest-mismatch
+    :payload-digest-mismatch
+    :write-unauthorized :write-forbidden :write-digest-rejected
     :alias-unresolved :resolved-endpoint-not-allowed
     :model-is-alias-target :messages-missing
+    :response-unmeasured :body-unparsable :completion-empty
+    :response-shape-unknown :response-shape-mismatch
     :no-trust-anchors :peer-unmeasured :peer-not-pinned})
 
 (defn- cfg [policy k]
@@ -203,6 +208,16 @@
   (str (if (str/ends-with? origin "/") (subs origin 0 (dec (count origin))) origin)
        path))
 
+(defn- url-path
+  "The path component of URL, or \"\" when it names only an origin. Written
+  here rather than taken from a URL library because `grant.cloud` is `.cljc`
+  and the two runtimes disagree about what a URL object is; the only question
+  asked of it is whether an authority already said where to POST."
+  [url]
+  (let [after-scheme (str/replace-first (str url) #"^[a-zA-Z][a-zA-Z0-9+.-]*://" "")
+        slash (str/index-of after-scheme "/")]
+    (if slash (subs after-scheme slash) "")))
+
 (defn- insecure-permitted?
   "Whether URL sits under an origin the operator explicitly marked as allowed
   to be plaintext. The escape hatch exists because a loopback test server has
@@ -303,6 +318,81 @@
     (allow {:aiueos.cloud/cid (:aiueos.cloud/cid plan)
             :aiueos.cloud/digest (:digest-hex response)})))
 
+(defn admit-write-payload
+  "Judge the bytes a caller is about to write under PLAN's CID, given the
+  digest the provider measured over them.
+
+  A CID is a claim about bytes; `PUT /ipfs/:cid` is this machine making that
+  claim to a store that will hold it. Checking it before the socket is not
+  belt-and-braces — kotobase would reject the mismatch, but by then the wrong
+  bytes have left the machine and the operator has a 400 to interpret instead
+  of a refusal to read.
+
+  A provider that did not measure gets `:digest-missing`, for the same reason
+  `admit-block` gives it: no measurement is not the same fact as a good one."
+  [plan payload-digest-hex]
+  (let [measured (str payload-digest-hex)]
+    (cond
+      (not (allowed? plan))
+      (deny :plan-not-allowed {:aiueos.cloud/plan-reason (:aiueos.cloud/reason plan)})
+
+      (str/blank? measured)
+      (deny :digest-missing {:aiueos.cloud/cid (:aiueos.cloud/cid plan)})
+
+      (not= (:aiueos.cloud/expect-digest plan) measured)
+      (deny :payload-digest-mismatch
+            {:aiueos.cloud/cid (:aiueos.cloud/cid plan)
+             :aiueos.cloud/expect-digest (:aiueos.cloud/expect-digest plan)
+             :aiueos.cloud/observed-digest measured})
+
+      :else
+      (allow {:aiueos.cloud/cid (:aiueos.cloud/cid plan)
+              :aiueos.cloud/digest measured}))))
+
+(defn admit-write
+  "Judge the RESPONSE to a block write. `{:status <int>}`.
+
+  200, 201 and 204 are accepted: a content-addressed store has nothing to say
+  about a block it already holds, so \"stored\" and \"already stored\" are the
+  same outcome and stores spell it differently.
+
+  ## Three refusals kept apart because three people fix them differently
+
+  kotobase's block-write gate answers with statuses that mean unrelated things,
+  and collapsing them into `:response-not-ok` would hand every one of them to
+  the same puzzled operator:
+
+  - **401** `:write-unauthorized` — no bearer token, or one the authority does
+    not hold. Measured against the live `kotobase.net` on 2026-08-21, this is
+    what an un-credentialed write gets;
+  - **403** `:write-forbidden` — the authority has the feature switched off.
+    Nothing the caller supplies will change it;
+  - **422** `:write-digest-rejected` — the authority hashed the body and got a
+    different digest from the CID. **This one should be unreachable**, because
+    `admit-write-payload` refuses those bytes before the socket. Reaching it
+    means this machine and the store disagree about what they hashed, which is
+    worth a name of its own rather than a number in a field.
+
+  All three are refusals by the authority, not faults: the request completed
+  and was answered."
+  [plan response]
+  (let [status (:status response)
+        extra {:aiueos.cloud/status status
+               :aiueos.cloud/cid (:aiueos.cloud/cid plan)}]
+    (cond
+      (not (allowed? plan))
+      (deny :plan-not-allowed {:aiueos.cloud/plan-reason (:aiueos.cloud/reason plan)})
+
+      (nil? status) (deny :response-unmeasured {:aiueos.cloud/cid (:aiueos.cloud/cid plan)})
+      (= 401 status) (deny :write-unauthorized extra)
+      (= 403 status) (deny :write-forbidden extra)
+      (= 422 status) (deny :write-digest-rejected extra)
+      (not (contains? #{200 201 204} status)) (deny :response-not-ok extra)
+
+      :else
+      (allow {:aiueos.cloud/cid (:aiueos.cloud/cid plan)
+              :aiueos.cloud/status status}))))
+
 ;; ── inference: murakumo ────────────────────────────────────────────────────
 
 (defn plan-model-resolve
@@ -320,10 +410,34 @@
 
   The resolved endpoint is re-checked against the allowlist. The entry is
   mutable and lives outside this machine, so admitting the resolver is not
-  admitting whatever the resolver names."
+  admitting whatever the resolver names.
+
+  ## When the resolution names no endpoint
+
+  A resolution with no endpoint is `:alias-unresolved`, and that is the
+  default. It is worth saying why the obvious convenience is not the default:
+  the murakumo worker resolves the alias server-side, so a caller may POST to
+  the inference origin with `model: \"murakumo-main\"` and never need an
+  endpoint at all — which makes \"treat a missing endpoint as the configured
+  origin\" a *correct* reading and a **silent** one. Silent is the problem. A
+  machine that reaches an origin because a field was absent has been authorised
+  by an omission.
+
+  So the fallback exists and is off. `:aiueos.cloud/endpoint-from-origin?` in
+  policy turns it on, and the admission records
+  `:aiueos.cloud/endpoint-source` — `:resolved` or `:configured-origin` — so a
+  receipt says which of the two happened rather than showing an endpoint and
+  leaving the reader to assume the authority named it."
   [policy resolution]
   (let [alias (cfg policy :aiueos.cloud/model-alias)
-        endpoint (str (:endpoint resolution))]
+        resolved (str (:endpoint resolution))
+        from-origin? (true? (:aiueos.cloud/endpoint-from-origin? policy))
+        source (cond (not (str/blank? resolved)) :resolved
+                     from-origin? :configured-origin
+                     :else :absent)
+        endpoint (if (= :configured-origin source)
+                   (str (cfg policy :aiueos.cloud/inference-origin))
+                   resolved)]
     (cond
       (str/blank? endpoint)
       (deny :alias-unresolved {:aiueos.cloud/alias alias})
@@ -337,13 +451,80 @@
                                             :aiueos.cloud/url endpoint})
 
       :else
-      (allow {:aiueos.cloud/model {:alias alias
+      (allow {:aiueos.cloud/endpoint-source source
+              :aiueos.cloud/model {:alias alias
                                    :endpoint endpoint
+                                   :endpoint-source source
                                    :alias-for (:alias-for resolution)}}))))
+
+(defn admit-resolution
+  "Judge the RESPONSE to `plan-model-resolve` and, if it is one, the resolution
+  inside it. `{:status <int> :body <string>}`.
+
+  The translation from the authority's JSON to the two fields `admit-model`
+  reads happens **here**, narrowly and by name. Keywordising a remote
+  authority's object keys would let it decide what keywords this machine holds;
+  reading exactly `\"endpoint\"` and `\"alias-for\"` means a field this machine
+  does not know about cannot become one it acts on."
+  [policy plan response]
+  (cond
+    (not (allowed? plan))
+    (deny :plan-not-allowed {:aiueos.cloud/plan-reason (:aiueos.cloud/reason plan)})
+
+    (nil? (:status response))
+    (deny :response-unmeasured {:aiueos.cloud/alias (:aiueos.cloud/alias plan)})
+
+    (not= 200 (:status response))
+    (deny :response-not-ok {:aiueos.cloud/status (:status response)
+                            :aiueos.cloud/alias (:aiueos.cloud/alias plan)})
+
+    :else
+    (let [body (json/read-json (str (:body response)))]
+      (if (json/failed? body)
+        (deny :body-unparsable {:aiueos.cloud/alias (:aiueos.cloud/alias plan)
+                                :grant.json/error (json/error-of body)})
+        (admit-model policy {:endpoint (get body "endpoint")
+                             :alias-for (get body "alias-for")})))))
+
+(def response-shapes
+  "Which answer shape an inference endpoint speaks, keyed by the path it is
+  reached at.
+
+  There are two, they are not compatible, and **both are live**. The alias
+  `murakumo-main` resolves onto `infer.murakumo.cloud/v1/chat/completions`,
+  which answers the OpenAI chat-completions shape; `api.murakumo.cloud/v1/messages`
+  is the Anthropic-shaped surface in front of the same fleet. Measured
+  2026-08-22, both.
+
+  The alternative — one reader lenient enough to swallow either — is the thing
+  this namespace exists to refuse. A parser that accepts both shapes cannot
+  tell \"the model returned nothing\" from \"this is not the document I asked
+  for\", because in both cases the key it wanted is absent. So the *plan*
+  records which shape it expects, from the path it is about to request, and
+  `admit-inference` reads exactly that one."
+  {"/v1/messages" :messages-v1
+   "/v1/chat/completions" :chat-completions-v1})
+
+(def response-shapes-by-name
+  "The shapes `admit-inference` can read. A plan naming anything else is
+  refused before the body is looked at: this machine cannot judge a document
+  whose shape it was never told, and guessing is what `response-shapes` exists
+  to stop."
+  (set (vals response-shapes)))
 
 (defn plan-inference
   "Plan a request against the admitted MODEL. OPTS carries `:messages` and may
   carry `:model-override`.
+
+  ## The endpoint is a URL, not always an origin
+
+  `/v1/messages` is appended only when the admitted endpoint is a bare origin.
+  A resolution that already names a path — measured 2026-08-21, the live
+  `murakumo-main` entry named `https://infer.murakumo.cloud/v1/chat/completions`
+  — **is** the request URL, because appending to it produces an address the
+  authority never named. The plan records which happened in
+  `:aiueos.cloud/endpoint-carries-path?`; either way the URL goes through the
+  same allowlist and transport check.
 
   The request's model is the alias. An override is honoured — an operator
   pinning a specific model is legitimate, and is the first step of the root
@@ -353,7 +534,11 @@
   [policy model opts]
   (let [messages (:messages opts)
         override (:model-override opts)
-        url (join-url (:endpoint model) "/v1/messages")]
+        endpoint (str (:endpoint model))
+        carries-path? (not (contains? #{"" "/"} (url-path endpoint)))
+        url (if carries-path? endpoint (join-url endpoint "/v1/messages"))
+        shape (or (:aiueos.cloud/response-shape policy)
+                  (get response-shapes (url-path url) :unknown))]
     (cond
       (empty? messages)
       (deny :messages-missing {:aiueos.cloud/alias (:alias model)})
@@ -371,7 +556,154 @@
                                    :messages (vec messages)}
                             (:max-tokens opts) (assoc :max_tokens (:max-tokens opts)))}
                    :aiueos.cloud/alias (:alias model)
+                   :aiueos.cloud/endpoint-carries-path? carries-path?
+                   :aiueos.cloud/response-shape shape
                    :aiueos.cloud/pinned? (some? override)})))))
+
+(defn- read-completion
+  "Read BODY as SHAPE. Returns `{:present? :text :stop}`.
+
+  `:present?` is about the *container*, not the text: whether the document has
+  the array this shape puts completions in at all. That distinction is the
+  whole reason the shape is declared rather than sniffed — an absent container
+  means the authority sent a different kind of document, and an empty string
+  inside a present container means the model said nothing. Those are different
+  events with different fixes, and a lenient reader reports them identically.
+
+  Reasoning fields are deliberately not read. A model that spent its whole
+  budget thinking and emitted no answer produced no completion; counting the
+  thinking would turn that into a pass. Measured 2026-08-22, that is exactly
+  what `infer.murakumo.cloud` returns at `max_tokens: 8` — `content: \"\"`,
+  a full `reasoning_content`, and `finish_reason: \"length\"`."
+  [shape body]
+  (if-not (map? body)
+    {:present? false}
+    (case shape
+      :messages-v1
+      (let [parts (get body "content")]
+        {:present? (vector? parts)
+         :text (when (vector? parts)
+                 (str/join (keep #(when (map? %) (get % "text")) parts)))
+         :stop (get body "stop_reason")})
+
+      :chat-completions-v1
+      (let [choices (get body "choices")]
+        {:present? (vector? choices)
+         :text (when (vector? choices)
+                 (str/join (keep #(get-in % ["message" "content"]) choices)))
+         :stop (get-in body ["choices" 0 "finish_reason"])})
+
+      {:present? false})))
+
+(defn admit-inference
+  "Judge the RESPONSE to an inference request. `{:status <int> :body <string>}`.
+
+  Three outcomes have to stay distinguishable, and a namespace that collapsed
+  them would be the defect root ADR-2608136000 names:
+
+  - **the provider could not measure** — no status at all, because the request
+    faulted. `:response-unmeasured`. It is not a refusal; there was nothing
+    to refuse;
+  - **the model returned nothing** — a 200 whose body carries no completion
+    text. `:completion-empty`;
+  - **it worked** — an allow carrying the text, its length, and the stop
+    reason.
+
+  A non-200 is `:response-not-ok` with the status, which is where an
+  un-credentialed request to the gated surface lands:
+  `POST https://api.murakumo.cloud/v1/messages` answered 401 on 2026-08-21. A
+  body that is not JSON is `:body-unparsable` with the reader's own reason,
+  rather than an empty completion — \"could not read it\" and \"read it and it
+  was empty\" are different facts.
+
+  Two more refusals exist because the answer shape is **declared by the plan**
+  rather than sniffed from the body (see `response-shapes`):
+
+  - `:response-shape-unknown` — the plan targeted a path this namespace has no
+    reader for. It is refused before the body is looked at, because a machine
+    that cannot say what document it asked for cannot judge the one it got;
+  - `:response-shape-mismatch` — the declared shape's container is absent. The
+    authority sent a different kind of document, which is not the same event as
+    the model returning nothing, and a lenient reader reports the two
+    identically."
+  [plan response]
+  (cond
+    (not (allowed? plan))
+    (deny :plan-not-allowed {:aiueos.cloud/plan-reason (:aiueos.cloud/reason plan)})
+
+    (nil? (:status response))
+    (deny :response-unmeasured {:aiueos.cloud/alias (:aiueos.cloud/alias plan)})
+
+    (not= 200 (:status response))
+    (deny :response-not-ok {:aiueos.cloud/status (:status response)
+                            :aiueos.cloud/alias (:aiueos.cloud/alias plan)})
+
+    (not (contains? response-shapes-by-name (:aiueos.cloud/response-shape plan)))
+    (deny :response-shape-unknown
+          {:aiueos.cloud/alias (:aiueos.cloud/alias plan)
+           :aiueos.cloud/response-shape (:aiueos.cloud/response-shape plan)})
+
+    :else
+    (let [shape (:aiueos.cloud/response-shape plan)
+          body (json/read-json (str (:body response)))]
+      (if (json/failed? body)
+        (deny :body-unparsable {:aiueos.cloud/alias (:aiueos.cloud/alias plan)
+                                :grant.json/error (json/error-of body)})
+        (let [{:keys [present? text stop]} (read-completion shape body)
+              base {:aiueos.cloud/alias (:aiueos.cloud/alias plan)
+                    :aiueos.cloud/response-shape shape}]
+          (cond
+            (not present?)
+            (deny :response-shape-mismatch base)
+
+            (str/blank? text)
+            (deny :completion-empty (assoc base :aiueos.cloud/stop-reason stop))
+
+            :else
+            (allow (assoc base
+                          :aiueos.cloud/completion text
+                          :aiueos.cloud/completion-chars (count text)
+                          :aiueos.cloud/stop-reason stop))))))))
+
+;; ── liveness: is the authority answering at all ────────────────────────────
+;;
+;; This is the smallest useful question and it is easy to mistake for a bigger
+;; one. Three states otherwise collapse into a single \"inference did not
+;; happen\": the authority is unreachable, the authority answered but this
+;; machine holds no credential, and the authority served a completion. A
+;; liveness probe separates the first from the second and says nothing about
+;; the third -- so `admit-liveness` returns `:aiueos.cloud/live? true` and no
+;; completion, and no caller may read it as one.
+
+(defn plan-liveness
+  "Plan the inference authority's liveness endpoint. PATH defaults to
+  `/ready`; it is configuration because it is the authority's route, not this
+  machine's."
+  ([policy] (plan-liveness policy (get policy :aiueos.cloud/liveness-path "/ready")))
+  ([policy path]
+   (with-allowed-url policy (join-url (cfg policy :aiueos.cloud/inference-origin) path)
+     (fn [url] {:aiueos.cloud/request {:method :get :url url}
+                :aiueos.cloud/liveness-path path}))))
+
+(defn admit-liveness
+  "Judge a liveness RESPONSE. A 200 and nothing else.
+
+  **This is not an inference result.** It says the authority answered this
+  machine on this path, which is worth knowing precisely because it is *less*
+  than a completion."
+  [plan response]
+  (cond
+    (not (allowed? plan))
+    (deny :plan-not-allowed {:aiueos.cloud/plan-reason (:aiueos.cloud/reason plan)})
+
+    (nil? (:status response))
+    (deny :response-unmeasured {:aiueos.cloud/url (get-in plan [:aiueos.cloud/request :url])})
+
+    (not= 200 (:status response))
+    (deny :response-not-ok {:aiueos.cloud/status (:status response)})
+
+    :else
+    (allow {:aiueos.cloud/live? true :aiueos.cloud/status 200})))
 
 ;; ── performing a plan ──────────────────────────────────────────────────────
 

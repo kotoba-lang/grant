@@ -6,8 +6,25 @@
 ;; an admission is a verdict about a response a provider already received.
 [{:db/id -1
   :aiueos.cloud/id :aiueos/default-cloud
-  :aiueos.cloud/source-files ["src/grant/cloud.cljc"]
-  :aiueos.cloud/hosted-provider "src/aiueos/provider/cloud.clj"
+  :aiueos.cloud/source-files ["src/grant/cloud.cljc" "src/grant/json.cljc"]
+  ;; Two repositories since 2026-08-21 (root ADR-2608219500). The decision half
+  ;; is here; the mechanism half and the operator gate are in `aiueos`, which
+  ;; depends on this plane and is not depended on by it. The paths below name
+  ;; files in that repository on purpose -- a contract that stopped naming its
+  ;; own mechanism the day the mechanism moved would be a contract about half a
+  ;; story.
+  :aiueos.cloud/hosted-provider "kotoba-lang/aiueos: src/aiueos/provider/cloud.clj"
+  :aiueos.cloud/live-gate {:entry "kotoba-lang/aiueos: src/aiueos/cloud_live.cljc"
+                           :policy "kotoba-lang/aiueos: resources/aiueos/cloud_live.edn"
+                           :alias :cloud-live
+                           :run-by :operator
+                           :not-run-by :murakumo-fleet
+                           :why-not-fleet "fleet nodes hold no credentials by
+                                           invariant and their egress is not
+                                           uniform"
+                           :exit-codes {0 :every-attempted-leg-admitted
+                                        1 :a-leg-was-refused
+                                        3 :a-leg-could-not-be-answered}}
   :aiueos.cloud/authorities
   {:storage {:default-origin "https://kotobase.net" :owner "net-kotobase"}
    :inference {:default-origin "https://api.murakumo.cloud"
@@ -19,8 +36,15 @@
                                :no-trust-anchors :peer-unmeasured :peer-not-pinned
                                :plan-not-allowed
                                :response-not-ok :digest-missing :digest-mismatch
+                               :payload-digest-mismatch
+                               :write-unauthorized :write-forbidden
+                               :write-digest-rejected
                                :alias-unresolved :resolved-endpoint-not-allowed
-                               :model-is-alias-target :messages-missing}
+                               :model-is-alias-target :messages-missing
+                               :response-unmeasured :body-unparsable
+                               :completion-empty
+                               :response-shape-unknown
+                               :response-shape-mismatch}
   :aiueos.cloud/cid-support
   {:multibase #{:base32-lower} :version #{1} :multihash #{:sha2-256}
    :codecs #{:raw :dag-pb :dag-cbor}
@@ -30,6 +54,55 @@
           gateways emit, because aiueos is dependency-minimal by invariant."}
   :aiueos.cloud/write-codec :raw
   :aiueos.cloud/write-codec-authority "root ADR-2608148200: PUT /ipfs/:cid takes raw CIDv1 only"
+  :aiueos.cloud/write-payload-checked-before-request? true
+  :aiueos.cloud/write-statuses {:stored #{200 201 204}
+                                401 :write-unauthorized
+                                403 :write-forbidden
+                                422 :write-digest-rejected}
+  :aiueos.cloud/write-credential
+  {:scheme :bearer
+   :header "Authorization"
+   :prefix-required "Bearer "
+   :not :cacao
+   :note "kotobase's block plane compares the token string-equal against an
+          operator secret. CACAO authenticates a tenant to the datom plane and
+          fails this gate's prefix test before any verifier sees it, so aiueos
+          owes a bearer seam here and not a CACAO port."
+   :measured "2026-08-21: PUT https://kotobase.net/ipfs/:cid with no credential
+              answers 401"}
+  :aiueos.cloud/credential-seam
+  {:where :provider-opts
+   :key :headers
+   :defaulted? false
+   :read-from-environment-by-provider? false
+   :carried-onto-result? false
+   :note "The provider holds no credential and reads no environment variable.
+          The live gate reads the environment and injects a header; the value
+          reaches a request and nothing else."}
+  :aiueos.cloud/json
+  {:reader "src/grant/json.cljc"
+   :refuses #{:duplicate-key :trailing-bytes :nan :infinity :leading-zero
+              :bare-plus :control-character-in-string :integer-out-of-range
+              :depth-exceeded :input-too-large}
+   :object-keys :string
+   :failure :value
+   :why-not-a-library "aiueos is dependency-minimal by invariant; adding a
+                       parser nobody here reviewed would enlarge the TCB this
+                       repository bounds"}
+  :aiueos.cloud/endpoint-from-origin-default false
+  :aiueos.cloud/endpoint-source-recorded? true
+  :aiueos.cloud/endpoint-may-carry-path? true
+  :aiueos.cloud/response-shapes
+  {"/v1/messages" :messages-v1
+   "/v1/chat/completions" :chat-completions-v1
+   :declared-by :plan
+   :override :aiueos.cloud/response-shape
+   :unknown :refused
+   :note "Both surfaces are live in front of the same fleet, measured
+          2026-08-22: api.murakumo.cloud/v1/messages is Anthropic-shaped and
+          credential-gated, infer.murakumo.cloud/v1/chat/completions is
+          OpenAI-shaped and answers without one. One reader lenient enough for
+          both could not tell an empty answer from the wrong document."}
   :aiueos.cloud/response-without-digest :denied
   :aiueos.cloud/resolved-endpoint-rechecked? true
   :aiueos.cloud/request-model :alias
@@ -48,7 +121,9 @@
                                    refused before the socket."}
   :aiueos.cloud/plaintext-escape-hatch :aiueos.cloud/allow-insecure-origins
   :aiueos.cloud/provider-faults #{:plan-not-allowed :net-denied
-                                  :response-too-large :request-failed}
+                                  :response-too-large :request-failed
+                                  :method-unsupported :body-unencodable}
+  :aiueos.cloud/provider-methods #{:get :post :put}
   :aiueos.cloud/provider-follows-redirects? false
   :aiueos.cloud/provider-body-ceiling-bytes 4194304
   :aiueos.cloud/assurance-gaps
@@ -56,25 +131,44 @@
     reports against the digest the CID commits to; whether the provider really
     hashed the bytes it received is the provider's claim, exactly as with
     aiueos.ota's artifact digests."
-   "No transport exists underneath this. The bare-metal profile has no DHCP,
-    DNS, TLS or HTTP client (ADR-0041 gap ledger steps 1-5), so nothing in this
-    repository has yet reached kotobase.net or api.murakumo.cloud. These are the
-    decisions those steps will be wired underneath."
+   "No transport exists underneath this FOR THE BARE-METAL PROFILE. It has no
+    DHCP, DNS, TLS or HTTP client (ADR-0041 gap ledger steps 1-5), and nothing
+    in those five steps moved. The hosted profile reached both authorities on
+    2026-08-21 over TLS with pinned peer keys (ADR-0073); the bare-metal
+    profile has reached neither."
    "The alias resolution response is trusted for its shape. Its endpoint is
-    re-checked against the allowlist, but nothing here authenticates the
-    resolver's answer -- that needs TLS, which is step 4."
-   "Request bodies are data, not wire bytes. Whether a provider serialises
-    :body the way the murakumo API expects is untested here."
+    re-checked against the allowlist, and on the hosted profile the resolver is
+    now authenticated by its pinned key. On the bare-metal profile it is not,
+    because there is no TLS there (step 4)."
+   "The completion shapes admit-inference reads are two, and the PLAN declares
+    which one it expects rather than the reader sniffing the body. A third
+    shape is :response-shape-unknown, refused before the body is read; the
+    declared shape's container being absent is :response-shape-mismatch, which
+    is a different event from the model returning nothing. What is not covered
+    is streaming: neither reader understands server-sent events, and a stream
+    would arrive as a mismatch rather than as a partial completion."
    "aiueos.policy/net-url-allowed? matches on host: it strips the scheme and the
     port. The https requirement is enforced in aiueos.cloud rather than by the
     allowlist, so an allowlist entry alone still does not distinguish
     kotobase.net:443 from kotobase.net:8443."
    "Peer trust is the policy's pin set and nothing else (ADR-0044); the JDK
-    default trust store is not consulted. What is unproved is the operational
-    half: no pin for the real kotobase.net or api.murakumo.cloud is recorded
-    anywhere, and how a pin reaches a device -- and how it rotates -- is not
-    decided. A pinning client with no pin distribution is a client that cannot
-    connect."
-   "There is no write path. PUT /ipfs/:cid needs a CACAO-authenticated caller
-    and no credential path exists here; plan-block-write is a decision with no
-    mechanism behind it yet."]}]
+    default trust store is not consulted. Pins for the real hosts are now
+    recorded in resources/aiueos/cloud_live.edn and were used to reach them.
+    They WILL rotate -- all three hosts are Cloudflare-fronted -- and nothing
+    connects that file to aiueos.anchors' rotation machinery yet: when they
+    stop matching, the gate goes red with :peer-not-pinned and a person
+    re-measures."
+   "The pin set is flat. admit-peer asks whether the key it saw is in the set,
+    not whether it is the right key for that host, so any pin in a policy is
+    accepted from any host in it. The host each pin was measured from is
+    recorded in the live policy's :anchor-notes and nowhere else."
+   "The write mechanism exists and the live write is unauthorised. write-block!
+    performs the PUT and is proved in both directions against a loopback
+    server; against the live kotobase.net it answers 401 because this machine
+    holds no bearer token. Unimplemented and unauthorised are different
+    sentences and this is the second one."
+   "The live inference leg is unmeasured. No murakumo API credential is
+    reachable from this workstation, so the gate reports the leg UNMEASURED
+    with exit 3 and never a pass. What was measured is that the authority
+    answers -- the alias resolved and /ready returned 200 -- which is less than
+    a completion and is reported as less."]}]
