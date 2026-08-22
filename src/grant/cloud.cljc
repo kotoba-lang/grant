@@ -36,8 +36,14 @@
   It does not put aiueos on the network. The bare-metal profile has no DNS, no
   TLS and no HTTP client (ADR-0041's gap ledger, steps 1–5); this is the
   decision layer those steps will be wired underneath, and it is checkable
-  before any of them exist."
-  (:require [grant.json :as json]
+  before any of them exist.
+
+  It does not read a stream. A `text/event-stream` response is refused by name
+  (`:response-streaming-unsupported`) rather than reported as the wrong
+  document, because \"we do not do this yet\" and \"the server sent us
+  something wrong\" are different sentences to the person reading the receipt."
+  (:require [grant.anchors :as anchors]
+            [grant.json :as json]
             [grant.net :as net]
             [grant.policy :as policy]
             [clojure.string :as str]))
@@ -55,14 +61,49 @@
   `perform` unchanged."
   #{:cid-unparsable :cid-not-raw :cid-not-sha256
     :origin-not-allowed :insecure-transport :plan-not-allowed
-    :response-not-ok :digest-missing :digest-mismatch
+    :response-not-ok :response-upstream-fault :digest-missing :digest-mismatch
     :payload-digest-mismatch
     :write-unauthorized :write-forbidden :write-digest-rejected
     :alias-unresolved :resolved-endpoint-not-allowed
     :model-is-alias-target :messages-missing
     :response-unmeasured :body-unparsable :completion-empty
     :response-shape-unknown :response-shape-mismatch
-    :no-trust-anchors :peer-unmeasured :peer-not-pinned})
+    :response-streaming-unsupported
+    :no-trust-anchors :peer-unmeasured :peer-not-pinned
+    :trust-anchors-unbound :anchor-binding-malformed
+    :peer-host-unknown :host-not-pinned :peer-pinned-to-other-host
+    :peer-pin-expired :peer-pin-window-unevaluated})
+
+(def unmeasurable-reasons
+  "The refusals that mean **nobody has been shown to be wrong**: the request
+  reached an authority that could not answer it right now.
+
+  Named here rather than in the gate, because which refusals are retryable is
+  a property of what the reason *means*, and the meaning is this namespace's.
+  A caller mapping verdicts onto exit codes reads this set instead of keeping
+  its own list, which would drift the day a reason is added.
+
+  `:response-unmeasured` is no answer at all; `:response-upstream-fault` is an
+  answer that says the peer is having a bad minute. Neither is evidence that a
+  pin, a digest or an allowlist is wrong, and a gate that spends exit 1 on them
+  teaches its operator to investigate the weather."
+  #{:response-unmeasured :response-upstream-fault})
+
+(defn upstream-fault-status?
+  "Whether STATUS is the authority failing rather than refusing.
+
+  5xx, all of it. Every host this plane reaches is Cloudflare-fronted, so the
+  range covers both the ordinary 502/503/504 and Cloudflare's own 520–527
+  origin errors, which say the edge could not reach the origin — which is the
+  most literal possible form of \"could not answer\".
+
+  **429 is deliberately not here.** It is retryable, and it is still a refusal:
+  the authority is answering about *this caller's* behaviour, which is a fact
+  about this machine and not about the weather. A gate that shrugged at rate
+  limiting would hide a misconfigured loop behind the same exit code as a
+  network outage."
+  [status]
+  (boolean (and (integer? status) (<= 500 status 599))))
 
 (defn- cfg [policy k]
   (get policy k (get default-config k)))
@@ -77,6 +118,17 @@
   "Whether DECISION is an allow. Every plan and admission answers this."
   [decision]
   (= :allow (:aiueos/decision decision)))
+
+(defn- status-refusal
+  "The refusal for a STATUS that is not one this request accepts.
+
+  One function, so a new request kind cannot classify 503 differently from the
+  one next to it. A 5xx is `:response-upstream-fault` and everything else is
+  `:response-not-ok`; both carry the status, because the number is what the
+  operator will look at either way."
+  [status extra]
+  (deny (if (upstream-fault-status? status) :response-upstream-fault :response-not-ok)
+        (assoc extra :aiueos.cloud/status status)))
 
 ;; ── CIDv1, narrowly ────────────────────────────────────────────────────────
 ;;
@@ -166,41 +218,257 @@
 ;; because this machine talks to exactly two authorities and both are known
 ;; before it boots.
 
-(defn trust-anchors
-  "The SPKI SHA-256 hex pins this policy will accept, as a set. Empty means the
-  operator has not said, which is not the same as \"anything\"."
+;; ── the pin set is host-bound, and a rotation is a window ──────────────────
+;;
+;; `:aiueos.cloud/trust-anchors` is a map from **host** to the pins this policy
+;; accepts *from that host*:
+;;
+;;     {"kotobase.net"        {:pins #{"5060…"} :measured "2026-08-21"}
+;;      "infer.murakumo.cloud" {:pins     #{"新…"}
+;;                              :previous #{"旧…"}
+;;                              :accept-previous-until-ms 1767225600000}}
+;;
+;; A bare collection under a host — `{"kotobase.net" #{"5060…"}}` — is the same
+;; binding with no rotation in progress, and is normalised to the record form.
+;; That is not a second shape in the sense that matters: the security property
+;; is that the key is bound to a host, and both forms bind it.
+;;
+;; The rotation fields are `grant.anchors`' vocabulary, evaluated by
+;; `grant.anchors/usable-anchors` — the same function the release-borne plane
+;; uses. A rotation is therefore *the same act* in both places: ship the new
+;; pin alongside the old, keep the old usable for a stated window, and let the
+;; clock retire it. Nothing here re-implements the overlap rule, because two
+;; implementations of "which keys work today" is how one of them ends up wrong.
+
+(defn- hex-pins [pins]
+  (set (map #(str/lower-case (str/trim (str %))) pins)))
+
+(defn- normalize-binding [v]
+  (if (map? v)
+    {:pins (hex-pins (:pins v))
+     :previous (hex-pins (:previous v))
+     :accept-previous-until-ms (:accept-previous-until-ms v)}
+    {:pins (hex-pins v) :previous #{}}))
+
+(defn anchor-bindings
+  "POLICY's declared anchors, normalised.
+
+  Returns `{:shape :host-bound|:unbound|:none :by-host {host binding} :pins
+  #{hex} :malformed [pin…]}`.
+
+  `:none` is an operator who has not said. `:unbound` is the flat set ADR-0044
+  shipped — a bare collection of pins with no host beside them — which is
+  **accepted and marked**, never guessed at; see `admit-peer`. `:malformed`
+  collects pins that are not 64 lowercase hex characters, using
+  `grant.anchors/pin-well-formed?` so the two planes agree on what a pin is: a
+  malformed pin can never match a measured key, so a policy carrying one is a
+  policy that partly cannot work while looking entirely valid."
   [policy]
-  (set (map #(str/lower-case (str %)) (:aiueos.cloud/trust-anchors policy))))
+  (let [declared (:aiueos.cloud/trust-anchors policy)]
+    (cond
+      (empty? declared)
+      {:shape :none :by-host {} :pins #{} :malformed []}
+
+      (map? declared)
+      (let [by-host (into {} (map (fn [[h v]] [(str/lower-case (str/trim (str h)))
+                                               (normalize-binding v)]))
+                          declared)
+            all (into #{} (mapcat (fn [[_ b]] (into (:pins b) (:previous b)))) by-host)]
+        {:shape :host-bound
+         :by-host by-host
+         :pins all
+         :malformed (vec (sort (remove anchors/pin-well-formed? all)))})
+
+      :else
+      (let [pins (hex-pins declared)]
+        {:shape :unbound
+         :by-host {}
+         :pins pins
+         :malformed (vec (sort (remove anchors/pin-well-formed? pins)))}))))
+
+(defn trust-anchors
+  "Every pin this policy names, flattened, as a set.
+
+  A **reporting** view — how many keys are written down, and are they all
+  well-formed — and not a decision. `admit-peer` never asks this question,
+  because the answer to \"is this key in the policy\" is the one that let host
+  A's key work for host B."
+  [policy]
+  (:pins (anchor-bindings policy)))
+
+(defn usable-pins
+  "The pins POLICY accepts from HOST **right now**.
+
+  During a rotation's overlap window that is the union of the host's current
+  and previous pins; after it, the current pins alone. The union is computed by
+  `grant.anchors/usable-anchors`, which is the release-borne plane's own rule.
+
+  `:aiueos.cloud/now-ms` in policy is the clock. Without it a window cannot be
+  evaluated, so the previous pins are **not** accepted — the direction that
+  refuses rather than admits, which is the only safe way for a check that could
+  not run to fall."
+  [policy host]
+  (let [{:keys [by-host]} (anchor-bindings policy)
+        binding (get by-host (str/lower-case (str/trim (str host))))]
+    (anchors/usable-anchors {:current-anchors (:pins binding)
+                             :previous-anchors (:previous binding)
+                             :accept-previous-until-ms (:accept-previous-until-ms binding)
+                             :now-ms (:aiueos.cloud/now-ms policy)})))
+
+(defn- hosts-pinning
+  "Which **other** hosts POLICY pins SPKI to. Used only to explain a refusal.
+
+  EXCEPT is the host being judged: its own retired key is a closed rotation
+  window, not somebody else's key, and reporting it as the latter would send
+  an operator hunting an attack that is really a schedule."
+  [bindings spki except]
+  (sort (keep (fn [[host b]]
+                (when (and (not= host except)
+                           (or (contains? (:pins b) spki) (contains? (:previous b) spki)))
+                  host))
+              (:by-host bindings))))
+
+(defn- window-state
+  "`:none`, `:open`, `:closed` or `:unevaluated` for a host binding's
+  rotation window.
+
+  `:unevaluated` covers both ways the question cannot be answered: no clock was
+  supplied, and a `:previous` set with no deadline — a rotation with no end is
+  not a rotation. Either way the previous pins are not honoured, and the
+  refusal says which, because a window that could not be evaluated must not
+  report the value of one that was evaluated and had closed."
+  [binding now-ms]
+  (let [until (:accept-previous-until-ms binding)]
+    (cond
+      (empty? (:previous binding)) :none
+      (or (nil? until) (nil? now-ms)) :unevaluated
+      (<= now-ms until) :open
+      :else :closed)))
 
 (defn anchors-declared?
   "Whether this policy names any peer key at all. Checked before the socket,
   so a machine with no anchors does not open a connection it could not have
   judged."
   [policy]
-  (boolean (seq (trust-anchors policy))))
+  (not= :none (:shape (anchor-bindings policy))))
 
 (defn admit-peer
-  "Judge the peer a connection reached. PEER is `{:spki-sha256 <hex>}` — the
-  SHA-256 of the leaf certificate's SubjectPublicKeyInfo, measured by the
-  provider.
+  "Judge the peer a connection reached. PEER is `{:spki-sha256 <hex> :host
+  <name>}` — the SHA-256 of the leaf certificate's SubjectPublicKeyInfo as the
+  provider measured it, and the host the provider was trying to reach.
 
   The pin is over the **key**, not the certificate, so an authority that
   renews its certificate with the same key keeps working and one that changes
   key does not — which is the event worth noticing.
 
-  Three refusals, deliberately distinct: nothing was declared, nothing was
-  measured, and what was measured is not what was declared. Only the third is
-  an attack; the first two are a machine that must not proceed as though it
-  had checked."
+  ## The host is half the question
+
+  Until 2026-08-22 it asked only whether the key was in the set, so **any**
+  pinned key was accepted from **any** allowed host: with three hosts in one
+  policy, an attacker able to answer for one of them could answer for all
+  three, and the mapping from key to host existed only in a comment. The host
+  is now part of the verdict, and presenting host A's key for host B has its
+  own refusal — `:peer-pinned-to-other-host` — because it is the one refusal
+  here that cannot be a rotation.
+
+  ## The flat set, deliberately
+
+  A policy whose anchors are a bare collection is `:unbound`. It is accepted,
+  and every verdict from it carries `:aiueos.cloud/anchor-binding :unbound`, so
+  an unbound acceptance is visible on the line of every receipt rather than
+  being the thing nobody can see. It is accepted because the release-borne
+  anchor document (ADR-0045/0046) carries a device-wide pin list with no host
+  field, and a device that boots from one has no other way to hold pins;
+  refusing it would strand exactly the machines the anchors plane exists for.
+  A deployment that can do better says `:aiueos.cloud/require-host-bound-anchors?
+  true` and gets `:trust-anchors-unbound` if it ever regresses — which is what
+  the shipped live policy does.
+
+  ## Seven refusals, kept apart because seven people fix them differently
+
+  - `:no-trust-anchors`      — nothing was declared. Not permission;
+  - `:anchor-binding-malformed` — a declared pin cannot be a SHA-256, so part
+    of this policy can never match anything;
+  - `:trust-anchors-unbound` — a flat set where the deployment requires hosts;
+  - `:peer-unmeasured`       — the provider did not report a key;
+  - `:peer-host-unknown`     — the caller did not say which host it reached, so
+    the host half of the question could not be asked at all;
+  - `:host-not-pinned`       — this policy names no pins for that host;
+  - `:peer-pin-expired`      — this host's **own** retired key, offered after
+    the overlap window closed. A schedule, not an attack: either the authority
+    has not finished rotating or the window was too short;
+  - `:peer-pin-window-unevaluated` — the same key, with no clock to judge the
+    window by. Refused, and named apart from `:peer-pin-expired` because
+    \"the window closed\" and \"nobody could tell whether it had\" are different
+    facts and only one of them is about the authority;
+  - `:peer-pinned-to-other-host` — the key is pinned, for somebody else;
+  - `:peer-not-pinned`       — a key nothing in this policy names.
+
+  Only the last two are an attack shape. The rest are a machine that must not
+  proceed as though it had checked."
   [policy peer]
-  (let [pins (trust-anchors policy)
-        measured (str/lower-case (str (:spki-sha256 peer)))]
+  (let [bindings (anchor-bindings policy)
+        measured (str/lower-case (str/trim (str (:spki-sha256 peer))))
+        host (str/lower-case (str/trim (str (:host peer))))]
     (cond
-      (empty? pins) (deny :no-trust-anchors {})
-      (str/blank? measured) (deny :peer-unmeasured {})
-      (not (contains? pins measured))
-      (deny :peer-not-pinned {:aiueos.cloud/observed-spki measured})
-      :else (allow {:aiueos.cloud/peer-spki measured}))))
+      (= :none (:shape bindings))
+      (deny :no-trust-anchors {})
+
+      (seq (:malformed bindings))
+      (deny :anchor-binding-malformed {:aiueos.cloud/malformed-pins (:malformed bindings)})
+
+      (and (= :unbound (:shape bindings))
+           (true? (:aiueos.cloud/require-host-bound-anchors? policy)))
+      (deny :trust-anchors-unbound {})
+
+      (str/blank? measured)
+      (deny :peer-unmeasured {})
+
+      (= :unbound (:shape bindings))
+      (if (contains? (:pins bindings) measured)
+        (allow {:aiueos.cloud/peer-spki measured
+                :aiueos.cloud/anchor-binding :unbound})
+        (deny :peer-not-pinned {:aiueos.cloud/observed-spki measured
+                                :aiueos.cloud/anchor-binding :unbound}))
+
+      (str/blank? host)
+      (deny :peer-host-unknown {:aiueos.cloud/observed-spki measured})
+
+      :else
+      (let [binding (get (:by-host bindings) host)
+            now-ms (:aiueos.cloud/now-ms policy)
+            window (window-state binding now-ms)
+            pins (usable-pins policy host)
+            elsewhere (hosts-pinning bindings measured host)
+            base {:aiueos.cloud/host host
+                  :aiueos.cloud/observed-spki measured}]
+        (cond
+          (and (empty? pins) (empty? (:previous binding)))
+          (deny :host-not-pinned base)
+
+          (contains? pins measured)
+          (allow {:aiueos.cloud/peer-spki measured
+                  :aiueos.cloud/host host
+                  :aiueos.cloud/anchor-binding :host
+                  :aiueos.cloud/rotation-window window})
+
+          (and (contains? (:previous binding) measured) (= :unevaluated window))
+          (deny :peer-pin-window-unevaluated
+                (assoc base :aiueos.cloud/accept-previous-until-ms
+                       (:accept-previous-until-ms binding)))
+
+          (contains? (:previous binding) measured)
+          (deny :peer-pin-expired
+                (assoc base :aiueos.cloud/accept-previous-until-ms
+                       (:accept-previous-until-ms binding)
+                       :aiueos.cloud/now-ms now-ms))
+
+          (seq elsewhere)
+          (deny :peer-pinned-to-other-host
+                (assoc base :aiueos.cloud/pinned-for (vec elsewhere)))
+
+          :else
+          (deny :peer-not-pinned base))))))
 
 ;; ── storage: kotobase ──────────────────────────────────────────────────────
 
@@ -303,8 +571,7 @@
     (deny :plan-not-allowed {:aiueos.cloud/plan-reason (:aiueos.cloud/reason plan)})
 
     (not= 200 (:status response))
-    (deny :response-not-ok {:aiueos.cloud/status (:status response)
-                            :aiueos.cloud/cid (:aiueos.cloud/cid plan)})
+    (status-refusal (:status response) {:aiueos.cloud/cid (:aiueos.cloud/cid plan)})
 
     (str/blank? (str (:digest-hex response)))
     (deny :digest-missing {:aiueos.cloud/cid (:aiueos.cloud/cid plan)})
@@ -387,7 +654,7 @@
       (= 401 status) (deny :write-unauthorized extra)
       (= 403 status) (deny :write-forbidden extra)
       (= 422 status) (deny :write-digest-rejected extra)
-      (not (contains? #{200 201 204} status)) (deny :response-not-ok extra)
+      (not (contains? #{200 201 204} status)) (status-refusal status extra)
 
       :else
       (allow {:aiueos.cloud/cid (:aiueos.cloud/cid plan)
@@ -475,8 +742,7 @@
     (deny :response-unmeasured {:aiueos.cloud/alias (:aiueos.cloud/alias plan)})
 
     (not= 200 (:status response))
-    (deny :response-not-ok {:aiueos.cloud/status (:status response)
-                            :aiueos.cloud/alias (:aiueos.cloud/alias plan)})
+    (status-refusal (:status response) {:aiueos.cloud/alias (:aiueos.cloud/alias plan)})
 
     :else
     (let [body (json/read-json (str (:body response)))]
@@ -504,6 +770,29 @@
   `admit-inference` reads exactly that one."
   {"/v1/messages" :messages-v1
    "/v1/chat/completions" :chat-completions-v1})
+
+(def streaming-content-type
+  "The media type a server-sent-event stream arrives as. Both inference
+  surfaces emit it when `stream: true` is asked for; this plane never asks."
+  "text/event-stream")
+
+(defn streaming-response?
+  "Whether RESPONSE is a server-sent-event stream rather than a document.
+
+  The content type decides when the provider reported one. When it did not,
+  the body's own framing does: an SSE payload begins with an `event:`, `data:`,
+  `id:` or `retry:` field, and a JSON document cannot.
+
+  Sniffing the body is a fallback and is written as one, because a server that
+  streams without saying so is exactly the case where the header cannot be
+  relied on — and getting this wrong in the lenient direction produces
+  `:body-unparsable`, which reads as \"the authority is broken\" when the truth
+  is \"this client does not implement the thing it was sent\"."
+  [response]
+  (let [ct (str/lower-case (str (:content-type response)))
+        body (str/triml (str (:body response)))]
+    (boolean (or (str/includes? ct streaming-content-type)
+                 (re-find #"^(?:event|data|id|retry):" body)))))
 
 (def response-shapes-by-name
   "The shapes `admit-inference` can read. A plan naming anything else is
@@ -609,12 +898,16 @@
   - **it worked** — an allow carrying the text, its length, and the stop
     reason.
 
-  A non-200 is `:response-not-ok` with the status, which is where an
-  un-credentialed request to the gated surface lands:
+  A non-200 the authority meant is `:response-not-ok` with the status, which is
+  where an un-credentialed request to the gated surface lands:
   `POST https://api.murakumo.cloud/v1/messages` answered 401 on 2026-08-21. A
-  body that is not JSON is `:body-unparsable` with the reader's own reason,
-  rather than an empty completion — \"could not read it\" and \"read it and it
-  was empty\" are different facts.
+  **5xx is `:response-upstream-fault`** instead, and is in
+  `unmeasurable-reasons`: a 503 from a Cloudflare edge says the peer is having
+  a bad minute, and giving it the same weight as a digest mismatch teaches an
+  operator to investigate the weather. A body that is not JSON is
+  `:body-unparsable` with the reader's own reason, rather than an empty
+  completion — \"could not read it\" and \"read it and it was empty\" are
+  different facts.
 
   Two more refusals exist because the answer shape is **declared by the plan**
   rather than sniffed from the body (see `response-shapes`):
@@ -625,7 +918,12 @@
   - `:response-shape-mismatch` — the declared shape's container is absent. The
     authority sent a different kind of document, which is not the same event as
     the model returning nothing, and a lenient reader reports the two
-    identically."
+    identically.
+
+  And one because this plane does not read streams:
+  `:response-streaming-unsupported`. An SSE response is not a malformed
+  document and not an empty answer; it is a document neither reader
+  understands, and saying so is the difference between a gap and a fault."
   [plan response]
   (cond
     (not (allowed? plan))
@@ -635,13 +933,17 @@
     (deny :response-unmeasured {:aiueos.cloud/alias (:aiueos.cloud/alias plan)})
 
     (not= 200 (:status response))
-    (deny :response-not-ok {:aiueos.cloud/status (:status response)
-                            :aiueos.cloud/alias (:aiueos.cloud/alias plan)})
+    (status-refusal (:status response) {:aiueos.cloud/alias (:aiueos.cloud/alias plan)})
 
     (not (contains? response-shapes-by-name (:aiueos.cloud/response-shape plan)))
     (deny :response-shape-unknown
           {:aiueos.cloud/alias (:aiueos.cloud/alias plan)
            :aiueos.cloud/response-shape (:aiueos.cloud/response-shape plan)})
+
+    (streaming-response? response)
+    (deny :response-streaming-unsupported
+          {:aiueos.cloud/alias (:aiueos.cloud/alias plan)
+           :aiueos.cloud/content-type (:content-type response)})
 
     :else
     (let [shape (:aiueos.cloud/response-shape plan)
@@ -700,7 +1002,7 @@
     (deny :response-unmeasured {:aiueos.cloud/url (get-in plan [:aiueos.cloud/request :url])})
 
     (not= 200 (:status response))
-    (deny :response-not-ok {:aiueos.cloud/status (:status response)})
+    (status-refusal (:status response) {})
 
     :else
     (allow {:aiueos.cloud/live? true :aiueos.cloud/status 200})))

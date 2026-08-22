@@ -306,7 +306,13 @@
    :anchors/anchors (vec (sort (map str anchors)))
    :anchors/break-glass? (true? break-glass?)})
 
-(defn- pin-well-formed? [pin]
+(defn pin-well-formed?
+  "Whether PIN is 64 lowercase hex characters, which is the only thing a
+  SHA-256 of a SubjectPublicKeyInfo can be.
+
+  Public because `grant.cloud` asks the same question of the pins in a live
+  policy, and two answers to \"what is a pin\" is one answer too many."
+  [pin]
   (boolean (re-matches #"[0-9a-f]{64}" (str pin))))
 
 (defn read-document
