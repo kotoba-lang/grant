@@ -1,6 +1,8 @@
 (ns grant.cloud-test
   (:require [grant.cloud :as cloud]
             [grant.json :as json]
+            #?(:clj [clojure.edn :as edn])
+            #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
@@ -87,29 +89,173 @@
 
 (def pin-a "af696ad28431887358d6bbc84d02af910ce3fa246dbbcf4264efef8d34a9c083")
 (def pin-b (apply str (repeat 64 "b")))
-(def pinned (assoc policy :aiueos.cloud/trust-anchors #{pin-a}))
+(def pin-c (apply str (repeat 64 "c")))
+
+(def pinned
+  "The shape a deployment uses: each key bound to the host it was measured
+  from."
+  (assoc policy :aiueos.cloud/trust-anchors
+         {"kotobase.net" {:pins #{pin-a} :measured "2026-08-21"}
+          "api.murakumo.cloud" {:pins #{pin-b} :measured "2026-08-21"}}))
+
+(def kotobase {:spki-sha256 pin-a :host "kotobase.net"})
 
 (deftest nothing-declared-is-not-anything
-  (is (= :no-trust-anchors (:aiueos.cloud/reason (cloud/admit-peer policy {:spki-sha256 pin-a})))
+  (is (= :no-trust-anchors (:aiueos.cloud/reason (cloud/admit-peer policy kotobase)))
       "an empty pin set is an operator who has not said, not an operator who said yes")
   (is (false? (cloud/anchors-declared? policy)))
+  (is (false? (cloud/anchors-declared? (assoc policy :aiueos.cloud/trust-anchors {}))))
   (is (true? (cloud/anchors-declared? pinned))))
 
 (deftest nothing-measured-is-not-a-pass
-  (is (= :peer-unmeasured (:aiueos.cloud/reason (cloud/admit-peer pinned {}))))
-  (is (= :peer-unmeasured (:aiueos.cloud/reason (cloud/admit-peer pinned {:spki-sha256 ""})))))
+  (is (= :peer-unmeasured (:aiueos.cloud/reason (cloud/admit-peer pinned {:host "kotobase.net"}))))
+  (is (= :peer-unmeasured (:aiueos.cloud/reason
+                           (cloud/admit-peer pinned {:spki-sha256 "" :host "kotobase.net"})))))
+
+(deftest a-caller-that-cannot-say-which-host-it-reached-has-not-checked
+  (let [v (cloud/admit-peer pinned {:spki-sha256 pin-a})]
+    (is (= :peer-host-unknown (:aiueos.cloud/reason v))
+        "the key is pinned -- and to WHICH host is half the question, so a
+         caller that omits the host has asked half of it")
+    (is (= pin-a (:aiueos.cloud/observed-spki v)))))
 
 (deftest a-key-that-was-not-named-is-refused
-  (let [v (cloud/admit-peer pinned {:spki-sha256 pin-b})]
+  (let [v (cloud/admit-peer pinned {:spki-sha256 pin-c :host "kotobase.net"})]
     (is (= :peer-not-pinned (:aiueos.cloud/reason v)))
-    (is (= pin-b (:aiueos.cloud/observed-spki v)) "and it says which key it saw")))
+    (is (= pin-c (:aiueos.cloud/observed-spki v)) "and it says which key it saw")
+    (is (= "kotobase.net" (:aiueos.cloud/host v)) "and which host it was reaching")))
 
 (deftest a-named-key-is-admitted-however-it-is-cased
-  (is (cloud/allowed? (cloud/admit-peer pinned {:spki-sha256 pin-a})))
-  (is (cloud/allowed? (cloud/admit-peer pinned {:spki-sha256 (str/upper-case pin-a)})))
-  (is (cloud/allowed? (cloud/admit-peer (assoc policy :aiueos.cloud/trust-anchors
-                                               #{(str/upper-case pin-a)})
-                                        {:spki-sha256 pin-a}))))
+  (is (cloud/allowed? (cloud/admit-peer pinned kotobase)))
+  (is (= :host (:aiueos.cloud/anchor-binding (cloud/admit-peer pinned kotobase))))
+  (is (cloud/allowed? (cloud/admit-peer pinned (assoc kotobase :spki-sha256
+                                                      (str/upper-case pin-a)))))
+  (is (cloud/allowed? (cloud/admit-peer
+                       (assoc policy :aiueos.cloud/trust-anchors
+                              {"KOTOBASE.NET" {:pins #{(str/upper-case pin-a)}}})
+                       kotobase))
+      "the policy is normalised too, so a capitalised host is not a second host"))
+
+;; ── a pin is a pin FOR A HOST ─────────────────────────────────────────────
+;;
+;; The flat set accepted any pinned key from any allowed host. With three hosts
+;; in one policy that is an attacker who can answer for one of them answering
+;; for all three.
+
+(deftest presenting-one-authoritys-key-for-another-is-its-own-refusal
+  (let [v (cloud/admit-peer pinned {:spki-sha256 pin-b :host "kotobase.net"})]
+    (is (= :peer-pinned-to-other-host (:aiueos.cloud/reason v))
+        "murakumo's key, offered by kotobase: the one refusal here that cannot
+         be a rotation, because a rotation does not hand you somebody else's
+         key")
+    (is (= ["api.murakumo.cloud"] (:aiueos.cloud/pinned-for v))
+        "and it says whose key it is, because that is what makes it actionable")
+    (is (= pin-b (:aiueos.cloud/observed-spki v)))
+    (is (not= :peer-not-pinned (:aiueos.cloud/reason v))
+        "which is a different sentence from a key nobody named")))
+
+(deftest a-host-this-policy-says-nothing-about-is-not-a-bad-key
+  (let [v (cloud/admit-peer pinned {:spki-sha256 pin-a :host "infer.murakumo.cloud"})]
+    (is (= :host-not-pinned (:aiueos.cloud/reason v))
+        "no pins for that host at all -- an operator who has not said, in the
+         host dimension, and not a peer that lied")
+    (is (= "infer.murakumo.cloud" (:aiueos.cloud/host v)))))
+
+;; ── the flat set: accepted, marked, and refusable on demand ───────────────
+
+(def unbound (assoc policy :aiueos.cloud/trust-anchors #{pin-a}))
+
+(deftest the-flat-set-is-accepted-and-says-on-every-verdict-that-it-is-flat
+  (let [v (cloud/admit-peer unbound {:spki-sha256 pin-a :host "kotobase.net"})]
+    (is (cloud/allowed? v))
+    (is (= :unbound (:aiueos.cloud/anchor-binding v))
+        "a device booted from a release-borne anchor set has no host field to
+         bind to; it is accepted, and it says so on the line of every receipt
+         rather than being the thing nobody can see"))
+  (is (cloud/allowed? (cloud/admit-peer unbound {:spki-sha256 pin-a}))
+      "and it cannot ask the host question, so it does not pretend to")
+  (is (= :peer-not-pinned (:aiueos.cloud/reason
+                           (cloud/admit-peer unbound {:spki-sha256 pin-c
+                                                      :host "kotobase.net"})))))
+
+(deftest a-deployment-that-can-bind-hosts-can-refuse-a-policy-that-does-not
+  (let [strict (assoc unbound :aiueos.cloud/require-host-bound-anchors? true)]
+    (is (= :trust-anchors-unbound (:aiueos.cloud/reason
+                                   (cloud/admit-peer strict {:spki-sha256 pin-a
+                                                             :host "kotobase.net"})))
+        "the shipped live policy sets this, so it cannot regress to the weaker
+         shape without the gate saying which shape it is")
+    (is (cloud/allowed? (cloud/admit-peer
+                         (assoc pinned :aiueos.cloud/require-host-bound-anchors? true)
+                         kotobase)))))
+
+(deftest a-pin-that-cannot-be-a-sha256-is-refused-rather-than-carried
+  (let [bad (assoc policy :aiueos.cloud/trust-anchors
+                   {"kotobase.net" {:pins #{pin-a "not-a-pin"}}})
+        v (cloud/admit-peer bad kotobase)]
+    (is (= :anchor-binding-malformed (:aiueos.cloud/reason v))
+        "a malformed pin can never match a measured key, so a policy holding
+         one partly cannot work while looking entirely valid -- and the half
+         that works would hide it")
+    (is (= ["not-a-pin"] (:aiueos.cloud/malformed-pins v)))))
+
+;; ── a rotation is a window, and the window is grant.anchors' ─────────────
+
+(def rotating
+  (assoc policy :aiueos.cloud/trust-anchors
+         {"kotobase.net" {:pins #{pin-b}
+                          :previous #{pin-a}
+                          :accept-previous-until-ms 2000}}))
+
+(deftest during-a-rotation-both-keys-work-and-afterwards-one-does
+  (let [during (assoc rotating :aiueos.cloud/now-ms 1500)
+        after (assoc rotating :aiueos.cloud/now-ms 2001)]
+    (is (cloud/allowed? (cloud/admit-peer during {:spki-sha256 pin-b :host "kotobase.net"}))
+        "the new key")
+    (is (cloud/allowed? (cloud/admit-peer during {:spki-sha256 pin-a :host "kotobase.net"}))
+        "and the old one, for now -- a Cloudflare edge mid-rotation serves both,
+         and a client that refuses one of them goes red on a healthy authority")
+    (is (cloud/allowed? (cloud/admit-peer after {:spki-sha256 pin-b :host "kotobase.net"})))
+    (let [v (cloud/admit-peer after {:spki-sha256 pin-a :host "kotobase.net"})]
+      (is (= :peer-pin-expired (:aiueos.cloud/reason v))
+          "the clock retires the old key, not an edit -- and it is this host's
+           own key, so it is a schedule and not somebody else's certificate")
+      (is (= 2000 (:aiueos.cloud/accept-previous-until-ms v))
+          "with the window it fell outside, because the fix is either finish
+           the rotation or widen the window"))
+    (is (= :open (:aiueos.cloud/rotation-window
+                  (cloud/admit-peer during {:spki-sha256 pin-b :host "kotobase.net"})))
+        "and an admission during a rotation says it was during one")
+    (is (= #{pin-a pin-b} (cloud/usable-pins during "kotobase.net")))
+    (is (= #{pin-b} (cloud/usable-pins after "kotobase.net")))))
+
+(deftest without-a-clock-the-window-cannot-be-evaluated-so-it-is-not-honoured
+  (is (= #{pin-b} (cloud/usable-pins rotating "kotobase.net"))
+      "no :aiueos.cloud/now-ms -- a check that could not run falls towards
+       refusing, never towards admitting")
+  (is (= :peer-pin-window-unevaluated
+         (:aiueos.cloud/reason (cloud/admit-peer rotating {:spki-sha256 pin-a
+                                                           :host "kotobase.net"})))
+      "and it is not reported as :peer-pin-expired: nobody measured whether the
+       window had closed, which is a different fact from measuring that it had")
+  (is (= :peer-pin-window-unevaluated
+         (:aiueos.cloud/reason
+          (cloud/admit-peer (assoc policy :aiueos.cloud/trust-anchors
+                                   {"kotobase.net" {:pins #{pin-b} :previous #{pin-a}}}
+                                   :aiueos.cloud/now-ms 9999)
+                            {:spki-sha256 pin-a :host "kotobase.net"})))
+      "a previous set with no deadline is the same hole from the other side:
+       a rotation with no end is not a rotation"))
+
+(deftest trust-anchors-is-a-reporting-view-and-not-a-decision
+  (is (= #{pin-a pin-b} (cloud/trust-anchors rotating))
+      "every pin the policy names, current and retiring, for counting and for
+       checking they are all well formed")
+  (is (= :peer-pinned-to-other-host
+         (:aiueos.cloud/reason (cloud/admit-peer pinned {:spki-sha256 pin-b
+                                                         :host "kotobase.net"})))
+      "and asking it instead of admit-peer is the bug this section is about:
+       pin-b IS in that set"))
 
 ;; ── judging the response ──────────────────────────────────────────────────
 
@@ -248,14 +394,54 @@
 (deftest the-declared-reason-set-is-complete
   (doseq [r [:cid-unparsable :cid-not-raw :origin-not-allowed :plan-not-allowed
              :insecure-transport :no-trust-anchors :peer-unmeasured :peer-not-pinned
-             :response-not-ok :digest-missing :digest-mismatch
+             :trust-anchors-unbound :anchor-binding-malformed
+             :peer-host-unknown :host-not-pinned :peer-pinned-to-other-host
+             :peer-pin-expired :peer-pin-window-unevaluated
+             :response-not-ok :response-upstream-fault :digest-missing :digest-mismatch
              :payload-digest-mismatch
              :write-unauthorized :write-forbidden :write-digest-rejected
              :alias-unresolved :resolved-endpoint-not-allowed
              :model-is-alias-target :messages-missing
              :response-unmeasured :body-unparsable :completion-empty
-             :response-shape-unknown :response-shape-mismatch]]
+             :response-shape-unknown :response-shape-mismatch
+             :response-streaming-unsupported]]
     (is (contains? cloud/deny-reasons r) (str r " is produced but not declared"))))
+
+;; ── the peer having a bad minute is not the bytes being wrong ─────────────
+
+(def block-plan (cloud/plan-block-read policy raw-cid))
+
+(deftest a-transient-upstream-fault-is-not-a-refusal
+  (testing "5xx, the whole range, including Cloudflare's 52x origin errors"
+    (doseq [status [500 502 503 504 520 522 524 599]]
+      (is (true? (cloud/upstream-fault-status? status)) (str status))))
+  (testing "and nothing else, on purpose"
+    (doseq [status [200 400 401 403 404 422 429 499 600 nil "503"]]
+      (is (false? (cloud/upstream-fault-status? status)) (str status))))
+  (testing "429 is retryable and is still a refusal: it is the authority
+            answering about THIS caller, which is a fact about this machine"
+    (is (= :response-not-ok
+           (:aiueos.cloud/reason (cloud/admit-block block-plan {:status 429}))))))
+
+(deftest the-two-unmeasurable-reasons-are-declared-where-the-meaning-lives
+  (is (= #{:response-unmeasured :response-upstream-fault} cloud/unmeasurable-reasons))
+  (doseq [r cloud/unmeasurable-reasons]
+    (is (contains? cloud/deny-reasons r)))
+  (is (not (contains? cloud/unmeasurable-reasons :digest-mismatch))
+      "the bytes not being what the CID promised is never retryable")
+  (is (not (contains? cloud/unmeasurable-reasons :peer-not-pinned))))
+
+(deftest a-block-read-tells-a-bad-minute-apart-from-a-bad-answer
+  (let [flaky (cloud/admit-block block-plan {:status 503})
+        wrong (cloud/admit-block block-plan {:status 200 :digest-hex other-digest})]
+    (is (= :response-upstream-fault (:aiueos.cloud/reason flaky)))
+    (is (= 503 (:aiueos.cloud/status flaky)) "and the status is on it either way")
+    (is (= :digest-mismatch (:aiueos.cloud/reason wrong)))
+    (is (contains? cloud/unmeasurable-reasons (:aiueos.cloud/reason flaky)))
+    (is (not (contains? cloud/unmeasurable-reasons (:aiueos.cloud/reason wrong)))
+        "one says the peer is having a bad minute; the other says the bytes
+         were not what the CID promised, and a gate that spends the same exit
+         code on both teaches its operator to investigate the weather")))
 
 ;; -- the resolution is JSON, and reading it is a decision ------------------
 
@@ -289,8 +475,12 @@
   (let [plan (cloud/plan-model-resolve policy)]
     (is (= :response-unmeasured (:aiueos.cloud/reason (cloud/admit-resolution policy plan {})))
         "no status means the request faulted; there was nothing to refuse")
+    (is (= :response-upstream-fault
+           (:aiueos.cloud/reason (cloud/admit-resolution policy plan {:status 503 :body ""})))
+        "a 503 is the edge having a bad minute, not the alias being wrong")
     (is (= :response-not-ok
-           (:aiueos.cloud/reason (cloud/admit-resolution policy plan {:status 503 :body ""}))))
+           (:aiueos.cloud/reason (cloud/admit-resolution policy plan {:status 404 :body ""})))
+        "and an alias the authority does not have is still a refusal")
     (is (= :body-unparsable
            (:aiueos.cloud/reason (cloud/admit-resolution policy plan {:status 200 :body "not json"})))
         "could not read it and read it and it was empty are different facts")))
@@ -383,6 +573,40 @@
       "and the same in the other direction -- one lenient reader would call
        both of these empty and hide the fact that the wrong host answered"))
 
+(deftest a-stream-is-refused-by-name-rather-than-as-the-wrong-document
+  ;; The real thing, as either surface emits it with `stream: true`: SSE frames
+  ;; carrying chat-completions deltas. This plane never asks for one, so the
+  ;; case that matters is an authority that starts streaming on its own.
+  (let [sse (str "data: {\"choices\":[{\"delta\":{\"content\":\"po\"}}]}\n\n"
+                 "data: {\"choices\":[{\"delta\":{\"content\":\"ng\"}}]}\n\n"
+                 "data: [DONE]\n\n")]
+    (testing "the content type says so"
+      (let [v (cloud/admit-inference chat-plan {:status 200
+                                                :content-type "text/event-stream"
+                                                :body sse})]
+        (is (= :response-streaming-unsupported (:aiueos.cloud/reason v))
+            "not :body-unparsable, which reads as the authority being broken
+             when the truth is that this client does not implement what it was
+             sent")
+        (is (= "text/event-stream" (:aiueos.cloud/content-type v)))))
+    (testing "and so does the framing, when nobody said"
+      (is (= :response-streaming-unsupported
+             (:aiueos.cloud/reason (cloud/admit-inference chat-plan {:status 200 :body sse})))))
+    (testing "a JSON document is not mistaken for one"
+      (is (cloud/allowed? (cloud/admit-inference chat-plan {:status 200
+                                                            :content-type "application/json"
+                                                            :body chat-body})))
+      (is (= :body-unparsable
+             (:aiueos.cloud/reason (cloud/admit-inference chat-plan {:status 200
+                                                                     :body "not json"})))
+          "genuinely unreadable bytes still read as unreadable"))
+    (testing "the predicate on its own"
+      (is (true? (cloud/streaming-response? {:content-type "text/event-stream; charset=utf-8"})))
+      (is (true? (cloud/streaming-response? {:body "event: ping\ndata: {}\n\n"})))
+      (is (false? (cloud/streaming-response? {:body chat-body})))
+      (is (false? (cloud/streaming-response? {}))
+          "an absent body is not a stream; it is an absent body"))))
+
 (deftest a-shape-this-namespace-cannot-read-is-refused-before-the-body
   (let [plan (assoc inference-plan :aiueos.cloud/response-shape :some-other-api)
         v (cloud/admit-inference plan {:status 200 :body messages-body})]
@@ -443,7 +667,9 @@
       (is (true? (:aiueos.cloud/live? v)))
       (is (nil? (:aiueos.cloud/completion v))
           "nothing here may be read as an inference result"))
-    (is (= :response-not-ok (:aiueos.cloud/reason (cloud/admit-liveness plan {:status 502}))))
+    (is (= :response-upstream-fault (:aiueos.cloud/reason (cloud/admit-liveness plan {:status 502}))))
+    (is (= :response-not-ok (:aiueos.cloud/reason (cloud/admit-liveness plan {:status 404})))
+        "a route that is not there is a fact about this machine's configuration")
     (is (= :response-unmeasured (:aiueos.cloud/reason (cloud/admit-liveness plan {}))))))
 
 ;; -- writing a block -------------------------------------------------------
@@ -475,7 +701,50 @@
       "the authority has the feature switched off; nothing the caller sends helps")
   (is (= :write-digest-rejected (:aiueos.cloud/reason (cloud/admit-write write-plan {:status 422})))
       "this machine and the store disagree about what they hashed")
-  (is (= :response-not-ok (:aiueos.cloud/reason (cloud/admit-write write-plan {:status 500}))))
+  (is (= :response-upstream-fault (:aiueos.cloud/reason (cloud/admit-write write-plan {:status 500})))
+      "and a fourth, which is not a refusal at all: the store failed to answer")
+  (is (= :response-not-ok (:aiueos.cloud/reason (cloud/admit-write write-plan {:status 405}))))
   (is (= :response-unmeasured (:aiueos.cloud/reason (cloud/admit-write write-plan {}))))
   (is (= 401 (:aiueos.cloud/status (cloud/admit-write write-plan {:status 401})))
       "and each carries the status, so a receipt does not have to guess"))
+
+;; ── the contract names files, and half of them are in this repository ─────
+;;
+;; `resources/aiueos/cloud_contract.edn` names source files in TWO
+;; repositories: `src/grant/*.cljc` here, and `src/aiueos/*` in
+;; `kotoba-lang/aiueos`, which requires this one and is not required by it. A
+;; test here can only see its own half, and the other half is checked by
+;; `aiueos.cloud-contract-paths-test` in that repository. Two tests, because
+;; neither can reach the other's tree -- and a claim nothing checks is exactly
+;; the shape root ADR-2608136000 is about.
+
+#?(:clj
+   (deftest the-contracts-own-source-files-exist
+     (let [contract (some-> (io/resource "aiueos/cloud_contract.edn")
+                            slurp edn/read-string first)
+           named (:aiueos.cloud/source-files contract)]
+       (is (some? contract) "resources/aiueos/cloud_contract.edn is on the classpath")
+       (is (.exists (io/file "deps.edn"))
+           (str "this test reads paths relative to the repository root; it was run "
+                "from " (System/getProperty "user.dir") " and cannot answer from there"))
+       (is (<= 2 (count named))
+           "an evidence floor: zero paths checked must not report the same
+            green as every path checked")
+       (doseq [path named]
+         (is (str/starts-with? path "src/grant/")
+             (str path " is not this repository's to check"))
+         (is (.exists (io/file path)) (str path " is named by the contract and does not exist"))))))
+
+#?(:clj
+   (deftest the-contract-declares-the-reasons-the-code-produces
+     ;; The same shape as the paths, one field over: the contract states a
+     ;; vocabulary and nothing compared it to the vocabulary. `deny-reasons` is
+     ;; already checked against what the functions emit; this closes the other
+     ;; side of the triangle.
+     (let [contract (some-> (io/resource "aiueos/cloud_contract.edn")
+                            slurp edn/read-string first)]
+       (is (some? contract))
+       (is (= cloud/deny-reasons (:aiueos.cloud/deny-reasons contract))
+           "the contract and the namespace name the same refusals")
+       (is (= cloud/unmeasurable-reasons (:aiueos.cloud/unmeasurable-reasons contract)))
+       (is (every? cloud/deny-reasons cloud/unmeasurable-reasons)))))

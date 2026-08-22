@@ -147,6 +147,9 @@
 ;; ── the set this produces is the set grant.cloud consumes ────────────────
 
 (deftest what-anchors-decides-is-what-cloud-checks-against
+  ;; A device-wide set, the release-borne shape: no host field anywhere in the
+  ;; anchor document, so what reaches `grant.cloud` is the flat set ADR-0044
+  ;; shipped. It is accepted, and every verdict says which shape it came from.
   (let [s0 (state)
         s1 (anchors/apply-set s0 (anchors/admit-set (proposed :anchors #{pin-a pin-b}) s0))
         s2 (anchors/apply-set s1 (anchors/admit-set (proposed :set-id "anchors-8" :sequence 8
@@ -155,6 +158,9 @@
         policy {:aiueos.cloud/trust-anchors (anchors/usable-anchors s2)}]
     (is (cloud/allowed? (cloud/admit-peer policy {:spki-sha256 pin-b})) "the new key")
     (is (cloud/allowed? (cloud/admit-peer policy {:spki-sha256 pin-a})) "the old one, for now")
+    (is (= :unbound (:aiueos.cloud/anchor-binding (cloud/admit-peer policy {:spki-sha256 pin-b})))
+        "and it says on the verdict that no host was bound, because the
+         document it came from has nowhere to put one")
     (is (= :peer-not-pinned
            (:aiueos.cloud/reason (cloud/admit-peer policy {:spki-sha256 pin-c}))))
     (let [after {:aiueos.cloud/trust-anchors
@@ -162,6 +168,35 @@
                   (assoc s2 :now-ms (inc (:accept-previous-until-ms s2))))}]
       (is (= :peer-not-pinned (:aiueos.cloud/reason (cloud/admit-peer after {:spki-sha256 pin-a})))
           "once the window closes the retired key is refused by the same function"))))
+
+(deftest the-overlap-rule-a-host-bound-policy-uses-is-this-one
+  ;; The other direction of the same seam. A deployment that knows which host
+  ;; each key came from writes the rotation down per host -- and the question
+  ;; "which keys work today" is still answered by `usable-anchors`, so there is
+  ;; one implementation of the overlap window and not two.
+  (let [s0 (state)
+        s1 (anchors/apply-set s0 (anchors/admit-set (proposed :anchors #{pin-a pin-b}) s0))
+        s2 (anchors/apply-set s1 (anchors/admit-set (proposed :set-id "anchors-8" :sequence 8
+                                                              :anchors #{pin-b})
+                                                    s1))
+        host-policy {:aiueos.cloud/trust-anchors
+                     {"kotobase.net" {:pins (:current-anchors s2)
+                                      :previous (:previous-anchors s2)
+                                      :accept-previous-until-ms (:accept-previous-until-ms s2)}}
+                     :aiueos.cloud/now-ms (:now-ms s2)}
+        peer (fn [pin host] (cloud/admit-peer host-policy {:spki-sha256 pin :host host}))]
+    (is (= (anchors/usable-anchors s2) (cloud/usable-pins host-policy "kotobase.net"))
+        "the same set, from the same function")
+    (is (cloud/allowed? (peer pin-b "kotobase.net")))
+    (is (cloud/allowed? (peer pin-a "kotobase.net")) "the retiring key, inside the window")
+    (is (= :host (:aiueos.cloud/anchor-binding (peer pin-b "kotobase.net"))))
+    (is (= :peer-pinned-to-other-host (:aiueos.cloud/reason
+                                       (cloud/admit-peer
+                                        (assoc-in host-policy
+                                                  [:aiueos.cloud/trust-anchors "evil.example"]
+                                                  {:pins #{pin-c}})
+                                        {:spki-sha256 pin-c :host "kotobase.net"})))
+        "which is the refusal the flat set could not make")))
 
 (deftest every-reason-this-namespace-produces-is-declared
   (doseq [r [:set-id-missing :anchor-set-empty :no-current-set

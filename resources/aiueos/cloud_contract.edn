@@ -24,7 +24,20 @@
                                            uniform"
                            :exit-codes {0 :every-attempted-leg-admitted
                                         1 :a-leg-was-refused
-                                        3 :a-leg-could-not-be-answered}}
+                                        3 :a-leg-could-not-be-answered}
+                           :pin-rotation
+                           {:measure "clojure -M:cloud-live pin https://<host>"
+                            :then "move that host's :pins into :previous, put the
+                                   measured key in :pins, and set
+                                   :accept-previous-until-ms"
+                            :retired-by :the-clock
+                            :not :signed-distribution
+                            :why-not "an operator workstation holds no root key and
+                                      there is no publisher in this path; the file
+                                      IS the trusted channel. The release-borne
+                                      signed path (ADR-0045/0046) is for devices
+                                      that receive anchors over a network they
+                                      cannot yet judge."}}
   :aiueos.cloud/authorities
   {:storage {:default-origin "https://kotobase.net" :owner "net-kotobase"}
    :inference {:default-origin "https://api.murakumo.cloud"
@@ -34,8 +47,13 @@
   :aiueos.cloud/deny-reasons #{:cid-unparsable :cid-not-raw :cid-not-sha256
                                :origin-not-allowed :insecure-transport
                                :no-trust-anchors :peer-unmeasured :peer-not-pinned
+                               :trust-anchors-unbound :anchor-binding-malformed
+                               :peer-host-unknown :host-not-pinned
+                               :peer-pinned-to-other-host
+                               :peer-pin-expired :peer-pin-window-unevaluated
                                :plan-not-allowed
-                               :response-not-ok :digest-missing :digest-mismatch
+                               :response-not-ok :response-upstream-fault
+                               :digest-missing :digest-mismatch
                                :payload-digest-mismatch
                                :write-unauthorized :write-forbidden
                                :write-digest-rejected
@@ -44,7 +62,19 @@
                                :response-unmeasured :body-unparsable
                                :completion-empty
                                :response-shape-unknown
-                               :response-shape-mismatch}
+                               :response-shape-mismatch
+                               :response-streaming-unsupported}
+  ;; Which refusals mean "nobody has been shown to be wrong". The gate maps
+  ;; these onto its could-not-answer exit code and everything else onto its
+  ;; refusal code, reading `grant.cloud/unmeasurable-reasons` rather than
+  ;; keeping a second list that would drift.
+  :aiueos.cloud/unmeasurable-reasons #{:response-unmeasured :response-upstream-fault}
+  :aiueos.cloud/upstream-fault-statuses
+  {:range [500 599]
+   :includes "Cloudflare 520-527: the edge could not reach the origin"
+   :excludes {429 "retryable, and still a refusal: the authority is answering
+                   about THIS caller's behaviour, which is a fact about this
+                   machine and not about the weather"}}
   :aiueos.cloud/cid-support
   {:multibase #{:base32-lower} :version #{1} :multihash #{:sha2-256}
    :codecs #{:raw :dag-pb :dag-cbor}
@@ -103,6 +133,15 @@
           credential-gated, infer.murakumo.cloud/v1/chat/completions is
           OpenAI-shaped and answers without one. One reader lenient enough for
           both could not tell an empty answer from the wrong document."}
+  :aiueos.cloud/streaming
+  {:supported? false
+   :refusal :response-streaming-unsupported
+   :detected-by [:content-type "text/event-stream" :body-framing #{"event:" "data:" "id:" "retry:"}]
+   :requested-by-this-plane? false
+   :note "A stream is not a malformed document and not an empty answer; it is a
+          document neither reader understands. Reporting it as
+          :body-unparsable would read as the authority being broken when the
+          truth is that this client does not implement what it was sent."}
   :aiueos.cloud/response-without-digest :denied
   :aiueos.cloud/resolved-endpoint-rechecked? true
   :aiueos.cloud/request-model :alias
@@ -113,12 +152,34 @@
                             :digest :sha2-256
                             :pinned :subject-public-key-info
                             :policy-key :aiueos.cloud/trust-anchors
+                            :shape :host-bound
+                            :binding {:host-bound "{host {:pins #{hex} :previous #{hex}
+                                                    :accept-previous-until-ms n}}"
+                                      :unbound "a bare collection of pins: the
+                                                release-borne ADR-0045 document has
+                                                no host field, so a device booted
+                                                from one holds this shape"
+                                      :unbound-accepted? true
+                                      :unbound-marked-on-every-verdict :aiueos.cloud/anchor-binding
+                                      :unbound-refusable :aiueos.cloud/require-host-bound-anchors?}
                             :empty-set :deny
+                            :malformed-pin :deny
                             :platform-trust-store :not-consulted
+                            :rotation {:rule :overlap-window
+                                       :decided-by "grant.anchors/usable-anchors"
+                                       :clock :aiueos.cloud/now-ms
+                                       :clock-absent :previous-pins-not-honoured
+                                       :note "one implementation of which keys work
+                                              today, shared with the release-borne
+                                              plane, because two would eventually
+                                              disagree"}
                             :note "The pin is over the key, so certificate renewal
                                    with the same key is not an event and a key
                                    change is. An https plan with no anchors is
-                                   refused before the socket."}
+                                   refused before the socket. The host is half the
+                                   question: presenting one authority's key for
+                                   another is :peer-pinned-to-other-host, which is
+                                   the one refusal here that cannot be a rotation."}
   :aiueos.cloud/plaintext-escape-hatch :aiueos.cloud/allow-insecure-origins
   :aiueos.cloud/provider-faults #{:plan-not-allowed :net-denied
                                   :response-too-large :request-failed
@@ -144,31 +205,52 @@
     which one it expects rather than the reader sniffing the body. A third
     shape is :response-shape-unknown, refused before the body is read; the
     declared shape's container being absent is :response-shape-mismatch, which
-    is a different event from the model returning nothing. What is not covered
-    is streaming: neither reader understands server-sent events, and a stream
-    would arrive as a mismatch rather than as a partial completion."
+    is a different event from the model returning nothing. Streaming is still
+    not implemented, and is now REFUSED BY NAME as
+    :response-streaming-unsupported rather than arriving as a mismatch or as an
+    unparsable body -- so a reader can tell 'we do not do this yet' from 'the
+    server sent us something wrong'. No murakumo surface has been asked to
+    stream, and this plane never sets stream: true."
    "aiueos.policy/net-url-allowed? matches on host: it strips the scheme and the
     port. The https requirement is enforced in aiueos.cloud rather than by the
     allowlist, so an allowlist entry alone still does not distinguish
     kotobase.net:443 from kotobase.net:8443."
    "Peer trust is the policy's pin set and nothing else (ADR-0044); the JDK
-    default trust store is not consulted. Pins for the real hosts are now
-    recorded in resources/aiueos/cloud_live.edn and were used to reach them.
-    They WILL rotate -- all three hosts are Cloudflare-fronted -- and nothing
-    connects that file to aiueos.anchors' rotation machinery yet: when they
-    stop matching, the gate goes red with :peer-not-pinned and a person
-    re-measures."
-   "The pin set is flat. admit-peer asks whether the key it saw is in the set,
-    not whether it is the right key for that host, so any pin in a policy is
-    accepted from any host in it. The host each pin was measured from is
-    recorded in the live policy's :anchor-notes and nowhere else."
+    default trust store is not consulted. Pins for the real hosts are recorded
+    in kotoba-lang/aiueos resources/aiueos/cloud_live.edn, bound to the host
+    each was measured from, and were used to reach them. They WILL rotate --
+    all three hosts are Cloudflare-fronted -- and the rotation is now expressed
+    in the vocabulary grant.anchors already owns: a per-host overlap window,
+    evaluated by grant.anchors/usable-anchors against :aiueos.cloud/now-ms. It
+    is NOT a signed, sequenced distribution: an operator measures the new key
+    with `cloud-live pin`, writes it in, and the clock retires the old one.
+    What is still not automated is a device receiving a new anchor set over the
+    network, which is what the release-borne path is for and which no host in
+    this policy uses."
+   "A device booted from a release-borne anchor set holds an UNBOUND pin set,
+    because the ADR-0045 anchor document carries a device-wide pin list with no
+    host field. admit-peer accepts it, marks every verdict from it
+    :aiueos.cloud/anchor-binding :unbound, and can be told to refuse it with
+    :aiueos.cloud/require-host-bound-anchors? -- which the live policy sets.
+    Making the anchor document host-aware is an OTA-plane change to a signed
+    encoding and has not been made."
    "The write mechanism exists and the live write is unauthorised. write-block!
     performs the PUT and is proved in both directions against a loopback
     server; against the live kotobase.net it answers 401 because this machine
     holds no bearer token. Unimplemented and unauthorised are different
     sentences and this is the second one."
-   "The live inference leg is unmeasured. No murakumo API credential is
-    reachable from this workstation, so the gate reports the leg UNMEASURED
-    with exit 3 and never a pass. What was measured is that the authority
-    answers -- the alias resolved and /ready returned 200 -- which is less than
-    a completion and is reported as less."]}]
+   "One of the two inference surfaces is exercised live. The completion came
+    from infer.murakumo.cloud, which answers without a credential;
+    api.murakumo.cloud/v1/messages answers 401 and no token for it is reachable
+    from this workstation, so the Anthropic-shaped reader is proved on loopback
+    only."
+   "A transient upstream fault is no longer a refusal, and 429 still is. A 5xx
+    is :response-upstream-fault and takes the gate's could-not-answer exit
+    code; a rate limit takes the refusal code, deliberately, because it is a
+    fact about this caller. Nothing retries: the classification says what
+    happened, and whether to ask again is the caller's."
+   "The source files this contract names are checked, in two halves. The
+    grant.cloud-test half checks src/grant/*; the aiueos half is checked by
+    aiueos.cloud-contract-paths-test in that repository, because neither test
+    can see the other's tree. A path added here that names neither repository
+    would be caught by the first and ignored by the second."]}]
