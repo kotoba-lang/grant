@@ -1,0 +1,85 @@
+{:tcb/version 1
+ :tcb/as-of "2026-08-22"
+ :tcb/scope
+ "Every file in `src/`. This repository IS the decision plane (root
+  ADR-2608219500), so `code whose compromise can grant authority` is not a
+  subset of it -- it is all of it. The inventory is therefore complete rather
+  than curated, and `grant.tcb/validate` fails if a file in `src/` has no
+  entry. A curated list would have to be argued about every time a namespace
+  is added; a complete one only has to be regenerated, and the check says so
+  when it was not."
+
+ :tcb/files
+ [
+  {:path "src/grant/anchors.cljc" :role :peer-trust-lifecycle
+   :sha256 "0845478f22b4fe3e50147db29f6a79422286258e1b5e0690688a04caa3678799"},
+  {:path "src/grant/audit.cljc" :role :audit-emission
+   :sha256 "de9579316b6f74c1d11d961478765cad254c58ada936c5d875cca85b7c108e1c"},
+  {:path "src/grant/authority.cljc" :role :principal-intent-decision-kernel
+   :sha256 "00ec9ceb5bb83729b6011dd7dcb64ce9b3c8f527afe4e926a6553b6b289678b5"},
+  {:path "src/grant/boot_admission.cljc" :role :boot-artifact-admission
+   :sha256 "89d855a90765e3ee7bca7010303ada2047ac374510611408dad653572d099895"},
+  {:path "src/grant/broker.cljc" :role :capability-authority
+   :sha256 "6e9b63a1e58920071c29725329d45fd58eeb462d749cae74f482274959f0469c"},
+  {:path "src/grant/cli.cljc" :role :cli-command-contract
+   :sha256 "3215fc9530f202bee053c99c583e3d6bf7c32c4f4282df45ac97df0709234581"},
+  {:path "src/grant/clock.cljc" :role :trusted-time
+   :sha256 "f9b6aa2cf8ef2e0d365a0b13eeace25c07ba2c04635cb1a5b473646518d63e16"},
+  {:path "src/grant/cloud.cljc" :role :remote-authority-decision
+   :sha256 "386b35cbd6074948cab032e06b770b55bd0c66d386f37e2657168352414a863f"},
+  {:path "src/grant/component_abi.cljc" :role :component-abi-translation
+   :sha256 "72228e0e65ce9704b8bddb64faf60bb8d5b474e866228b66182da17aa6c3eaaf"},
+  {:path "src/grant/contract.cljc" :role :authority-schema
+   :sha256 "021631651038a134578913f0373684fdbfde15d594c3eb87b48236ec9fb54400"},
+  {:path "src/grant/decide.cljc" :role :decision-subprocess-bridge
+   :sha256 "f7a4bb90ddcdd5ad25d7f2257341e97c47d1d8b0eb300cb583bb1f8f1466ccfa"},
+  {:path "src/grant/deployment_profile.cljc" :role :production-admission
+   :sha256 "b2bb3514fd3c838defa539107629660059b6ed22cde355d18d2e2d3004fe3a9e"},
+  {:path "src/grant/enroll.cljc" :role :enrolment-admission
+   :sha256 "8637af977f18295e963dd04e31e625b97e5e10fce9df92c980e126c36fbc10bb"},
+  {:path "src/grant/execution_decision.cljc" :role :submitted-plan-admission
+   :sha256 "dddb5969169b97ac82e83688e98f636ae9cce6eea20d7049654b470c212d90ce"},
+  {:path "src/grant/graph.cljc" :role :component-graph-admission
+   :sha256 "c07a7b99c0be69bebdea9423e4a050bcd11c8cd3713c4f1b7e25278954da1e54"},
+  {:path "src/grant/json.cljc" :role :decision-serialisation
+   :sha256 "4ed2df1686a3b531796870724af2430aab6d9da0e5b2ac511da51dc073950fc5"},
+  {:path "src/grant/kagi_policy.cljc" :role :secret-reference-decision
+   :sha256 "f6d13a487d1c45aa789dd59803231466eb89a56c3d87012aaef895d8abbc7d1a"},
+  {:path "src/grant/key_lifecycle.clj" :role :signer-lifecycle-authority
+   :sha256 "ca031a064a6cd1ac6ae180c09674b1b00ed438c9744cc9ad2cfedd1143e905c8"},
+  {:path "src/grant/manifest.cljc" :role :component-identity
+   :sha256 "bf9cf0e6412fe5ca77a80429024baf282eedcac6b95f47b2ff1cd1f1a9569e21"},
+  {:path "src/grant/native_effect.clj" :role :native-effect-qualification
+   :sha256 "52ce7a58f6b78b6375c871c943732b3a2ef8685b4d71ffaaf56cc7fbadd0d876"},
+  {:path "src/grant/net.cljc" :role :network-origin-gate
+   :sha256 "84a3f9a46d306188fafbcf48dd9f6759867e4dc5589ca426c03bfa23b71b02d1"},
+  {:path "src/grant/ota.cljc" :role :update-composition
+   :sha256 "39115b968d1b9831a83e64ad883504c0f1a51bc8c172af61fb8a82f1c18aa552"},
+  {:path "src/grant/policy.cljc" :role :policy-decision
+   :sha256 "5d7f1e8aaf8773f5cf407a8cbb9fb5cf9adb6b8df87b1206c2aa59e6d124df2b"},
+  {:path "src/grant/publisher.cljc" :role :release-admission
+   :sha256 "80276d090e320e8b7ab6cf9e9b30aa9f3dcf96da6dec77cb6ceedeb9f19c034e"},
+  {:path "src/grant/signing.cljc" :role :manifest-authenticity
+   :sha256 "a7a3a81770ca2745fc54f68d9fa3e5302b8d1fa216ba37d904b16d310edbaeea"},
+  {:path "src/grant/tcb.clj" :role :tcb-inventory-authority
+   :sha256 "4d59d2cce72f8fa09535524a21d2061a6f3ad94db509fabdc04a97a14f6488db"},
+  {:path "src/grant/surface.cljc" :role :host-provider-surface
+   :sha256 "6d268b11ba1989f0c7703f3844d5bb6bfd38e1ec5a614963df7217e86cce88a7"},
+  {:path "src/grant/update.cljc" :role :update-admission
+   :sha256 "45d55b4fcd1ef281ef7680cb8454e3e5b4b0ee579f65c3752cc9b8a91bca54e2"}]
+
+ ;; Recorded pins are compared with the ones deps.edn resolves, not merely
+ ;; checked for existence. In `kototama` that comparison was missing and three
+ ;; of six recorded pins had drifted unnoticed (measured 2026-08-22), which is
+ ;; why it is here from the first commit rather than added after the first
+ ;; drift.
+ :tcb/external
+ [{:coordinate "io.github.kotoba-lang/security"
+   :git-sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"
+   :role :shared-security-primitives}
+  {:coordinate "io.github.kotoba-lang/abi"
+   :git-sha "32ee84b2efc92478c846629c8d8319280eed506c"
+   :role :component-admission-contract}
+  {:coordinate "java.base" :minimum-version 21
+   :external-to-deps true
+   :role :crypto-and-runtime}]}
