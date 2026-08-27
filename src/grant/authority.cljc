@@ -5,7 +5,9 @@
   providers.  It accepts verified, data-only facts; it never parses cookies,
   CACAO, Passkeys, JWTs, or private keys.  It returns a decision and, on
   success, a capability *specification*.  The host broker remains responsible
-  for turning that specification into an unforgeable runtime handle.")
+  for turning that specification into an unforgeable runtime handle."
+  (:require [authority.scope :as scope]
+            [clojure.string :as str]))
 
 (def input-keys
   #{:authority/principal :authority/actor :authority/intent
@@ -118,9 +120,22 @@
 (defn- member? [items value]
   (contains? (set items) value))
 
-(defn- resource-match? [resources resource]
-  (or (member? resources :*)
-      (member? resources resource)))
+(defn- scope-segment [value]
+  ;; One EDN value is one authority segment. Escape only what can alter the
+  ;; authority.scope path shape; pr-str keeps keyword/string/vector types
+  ;; distinct, so two resources cannot collide through string coercion.
+  (-> (pr-str value)
+      (str/replace "%" "%25")
+      (str/replace "/" "%2F")
+      (str/replace "*" "%2A")))
+
+(defn- intent-scope [action resource]
+  ["kotoba" "intent" (scope-segment action)
+   (if (= :* resource) :* (scope-segment resource))])
+
+(defn- resource-match? [action resources resource]
+  (scope/covered? (into #{} (map #(intent-scope action %)) resources)
+                  (intent-scope action resource)))
 
 (defn- public-intent? [policy action resource]
   (let [public (set (:policy/public policy))]
@@ -149,7 +164,7 @@
         tenant (or (:context/tenant context) principal-tenant)]
     (and (= principal-id (:grant/subject grant))
          (member? (:grant/actions grant) action)
-         (resource-match? (:grant/resources grant) resource)
+         (resource-match? action (:grant/resources grant) resource)
          (or (nil? (:grant/audience grant))
              (= audience (:grant/audience grant)))
          (or (nil? (:grant/tenant grant))
