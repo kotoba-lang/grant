@@ -22,7 +22,7 @@
   {:path "src/grant/broker.cljc" :role :capability-authority
    :sha256 "6e9b63a1e58920071c29725329d45fd58eeb462d749cae74f482274959f0469c"},
   {:path "src/grant/causal_trust.cljc" :role :causal-trust-admission
-   :sha256 "1941da4fa6014e41f7306838fbbd368d2e0f46fc7f3697f8d4d53de541d44626"},
+   :sha256 "d9d1042ea087d5f9bbcd7263d0b9890f0637623ebb7e9e38b5c758cea20e5cfb"},
   {:path "src/grant/cli.cljc" :role :cli-command-contract
    :sha256 "3215fc9530f202bee053c99c583e3d6bf7c32c4f4282df45ac97df0709234581"},
   {:path "src/grant/clock.cljc" :role :trusted-time
