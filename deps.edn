@@ -12,7 +12,11 @@
  :deps {io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
         io.github.kotoba-lang/abi {:git/url "https://github.com/kotoba-lang/abi.git"
-                                   :git/sha "32ee84b2efc92478c846629c8d8319280eed506c"}}
+                                   :git/sha "32ee84b2efc92478c846629c8d8319280eed506c"}
+        io.github.kotoba-lang/authority {:git/url "https://github.com/kotoba-lang/authority.git"
+                                         :git/sha "232eef9b7969aa5990f9b5e48b1184f078500781"}
+        io.github.kotoba-lang/identity {:git/url "https://github.com/kotoba-lang/identity.git"
+                                        :git/sha "6e4a07eaf44e3dbebfb4b340fd4f11448490f71f"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner

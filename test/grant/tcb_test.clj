@@ -4,7 +4,7 @@
             [grant.tcb :as tcb]))
 
 (deftest checked-in-tcb-has-no-drift
-  (is (= {:valid? true :files 28 :external 3 :errors []}
+  (is (= {:valid? true :files 29 :external 5 :errors []}
          (tcb/validate))
       "the counts are asserted, not bounded: an inventory that silently
        shrinks is the failure this namespace exists to catch"))

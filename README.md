@@ -34,6 +34,7 @@ rewriting to make it hold — it was already true and simply unstated.
 | Namespace | Decides |
 |---|---|
 | `grant.authority` | the Principal–Intent–Decision kernel: `:allow` / `:deny` / `:challenge` |
+| `grant.causal-trust` | scoped evaluator claims → trust challenge → ordinary authority decision and secret-free receipt |
 | `grant.broker` | grant/deny per component, the ADR-0004 admission gate, run-plan and run-receipt shaping |
 | `grant.policy` | the policy reasoner: signers, forbidden effects, ABAC, surface conformance |
 | `grant.contract` | the pure EDN contract every other namespace here validates against |
@@ -57,24 +58,16 @@ rewriting to make it hold — it was already true and simply unstated.
 - **No key custody.** `grant.signing` verifies; it does not sign.
 - **No hardware.** PCI, DMA, IRQ and MMIO are aiueos.
 
-## The second covering relation
+## One covering relation
 
-`grant.authority/resource-match?` answers *does this grant cover this intent*
-with exact membership plus a `:*` wildcard over `[action resource]` pairs.
-[`kotoba-lang/authority`](https://github.com/kotoba-lang/authority) answers the
-same question over segment paths with a real partial order, and root
-ADR-2608180200 says there should be one decider.
-
-**These are two answers, and this repository still holds the second one.** It
-was not folded in at the split because the two relations are not the same
-shape — `authority.scope` would need `kotoba://` scope strings where this takes
-action/resource pairs, so unifying them is a semantic change and not a
-refactor. It needs its own evidence and its own ADR.
-
-Until then the exemption that hid it moves with it: `verify-delegation-surfaces`
-named `aiueos` in `owns-the-comparison`, and now names `grant`. The exemption
-follows the code rather than the repository name, so the gap stays visible
-instead of quietly becoming somebody else's.
+`grant.authority` still accepts its stable `[action resource]` EDN contract,
+but it now projects each value into an unambiguous `authority.scope` segment
+and delegates covering to
+[`kotoba-lang/authority`](https://github.com/kotoba-lang/authority). Exact
+resources and the legacy `:*` resource wildcard therefore use the same partial
+order as the rest of the fleet. EDN type tags come from `pr-str`; path-shaping
+characters are escaped before a value becomes one segment, so prefix confusion
+cannot be reintroduced by string coercion.
 
 ## Contract data keeps its `aiueos` vocabulary
 

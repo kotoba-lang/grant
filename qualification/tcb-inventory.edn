@@ -1,5 +1,5 @@
 {:tcb/version 1
- :tcb/as-of "2026-08-22"
+ :tcb/as-of "2026-08-27"
  :tcb/scope
  "Every file in `src/`. This repository IS the decision plane (root
   ADR-2608219500), so `code whose compromise can grant authority` is not a
@@ -16,11 +16,13 @@
   {:path "src/grant/audit.cljc" :role :audit-emission
    :sha256 "de9579316b6f74c1d11d961478765cad254c58ada936c5d875cca85b7c108e1c"},
   {:path "src/grant/authority.cljc" :role :principal-intent-decision-kernel
-   :sha256 "00ec9ceb5bb83729b6011dd7dcb64ce9b3c8f527afe4e926a6553b6b289678b5"},
+   :sha256 "9456f2d0813bb697979532c5b7ffe5d89d466417574cb8dc1d9887e783a6e9a6"},
   {:path "src/grant/boot_admission.cljc" :role :boot-artifact-admission
    :sha256 "89d855a90765e3ee7bca7010303ada2047ac374510611408dad653572d099895"},
   {:path "src/grant/broker.cljc" :role :capability-authority
    :sha256 "6e9b63a1e58920071c29725329d45fd58eeb462d749cae74f482274959f0469c"},
+  {:path "src/grant/causal_trust.cljc" :role :causal-trust-admission
+   :sha256 "1941da4fa6014e41f7306838fbbd368d2e0f46fc7f3697f8d4d53de541d44626"},
   {:path "src/grant/cli.cljc" :role :cli-command-contract
    :sha256 "3215fc9530f202bee053c99c583e3d6bf7c32c4f4282df45ac97df0709234581"},
   {:path "src/grant/clock.cljc" :role :trusted-time
@@ -80,6 +82,12 @@
   {:coordinate "io.github.kotoba-lang/abi"
    :git-sha "32ee84b2efc92478c846629c8d8319280eed506c"
    :role :component-admission-contract}
+  {:coordinate "io.github.kotoba-lang/authority"
+   :git-sha "232eef9b7969aa5990f9b5e48b1184f078500781"
+   :role :capability-scope-partial-order}
+  {:coordinate "io.github.kotoba-lang/identity"
+   :git-sha "6e4a07eaf44e3dbebfb4b340fd4f11448490f71f"
+   :role :causal-identity-and-trust-claim-contract}
   {:coordinate "java.base" :minimum-version 21
    :external-to-deps true
    :role :crypto-and-runtime}]}
