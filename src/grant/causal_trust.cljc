@@ -5,14 +5,14 @@
   capability: an ordinary grant, declared effect and local policy still have
   to pass `grant.authority/decide`.  The result names the exact epoch, claims,
   policy and immutable basis that were used so storage can persist a replayable
-  decision receipt."
+  decision receipt, including the exact intent CID."
   (:require [grant.authority :as authority]
             [identity.causal :as causal]))
 
 (def input-keys
   #{:causal.trust/authority :causal.trust/epoch :causal.trust/claims
     :causal.trust/requirements :causal.trust/policy-cid
-    :causal.trust/basis-cid :causal.trust/now})
+    :causal.trust/intent-cid :causal.trust/basis-cid :causal.trust/now})
 
 (def requirement-keys
   #{:trust.requirement/scope :trust.requirement/predicate
@@ -97,7 +97,7 @@
   Invalid or stale evidence fails closed.  A satisfiable shortage is a
   challenge; a model claim can never compensate for a missing grant or effect."
   [{:causal.trust/keys [authority epoch claims requirements policy-cid
-                        basis-cid now] :as input}]
+                        intent-cid basis-cid now] :as input}]
   (let [now-ms (instant-ms now)
         malformed? (or (not= input-keys (set (keys input)))
                        (not (map? authority))
@@ -107,6 +107,7 @@
                        (not (vector? requirements))
                        (not (every? requirement? requirements))
                        (not (non-empty-string? policy-cid))
+                       (not (non-empty-string? intent-cid))
                        (not (non-empty-string? basis-cid))
                        (not (number? now-ms)))]
     (cond
@@ -131,6 +132,7 @@
             basis {:decision/trust-epoch-cid (:identity.epoch/id epoch)
                    :decision/trust-claim-cids (mapv :trust.claim/id used)
                    :decision/trust-policy-cid policy-cid
+                   :decision/trust-intent-cid intent-cid
                    :decision/trust-basis-cid basis-cid}]
         (if (seq missing)
           (merge {:decision/status :challenge
@@ -163,9 +165,16 @@
              (:decision/trust-epoch-cid decision))
           (= (:causal.receipt/policy-cid input)
              (:decision/trust-policy-cid decision))
+          (= (:causal.receipt/intent-cid input)
+             (:decision/trust-intent-cid decision))
           (= (:causal.receipt/basis-cid input)
              (:decision/trust-basis-cid decision))
           (contains? #{:allow :deny :challenge} (:decision/status decision))
+          (or (not= :allow (:decision/status decision))
+              (= (:causal.receipt/principal input)
+                 (get-in decision
+                         [:decision/runtime-capability-spec
+                          :capability/principal])))
           (map? (:causal.receipt/outcome input))
           (keyword? (get-in input [:causal.receipt/outcome :outcome/status]))
           (non-empty-string? (:causal.receipt/at input)))

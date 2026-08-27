@@ -57,6 +57,7 @@
    :causal.trust/claims claims
    :causal.trust/requirements [requirement]
    :causal.trust/policy-cid "bafy-authority-policy"
+   :causal.trust/intent-cid "bafy-intent"
    :causal.trust/basis-cid "bafy-basis"
    :causal.trust/now "2026-08-27T01:00:00Z"})
 
@@ -99,7 +100,13 @@
                  :causal.receipt/at "2026-08-27T01:00:01Z"}]
     (is (= receipt (trust/receipt receipt)))
     (is (thrown? #?(:clj Exception :cljs js/Error)
-                 (trust/receipt (assoc receipt :credential/raw "secret"))))))
+                 (trust/receipt (assoc receipt :credential/raw "secret"))))
+    (is (thrown? #?(:clj Exception :cljs js/Error)
+                 (trust/receipt (assoc receipt :causal.receipt/intent-cid
+                                       "bafy-other-intent"))))
+    (is (thrown? #?(:clj Exception :cljs js/Error)
+                 (trust/receipt (assoc receipt :causal.receipt/principal
+                                       "did:key:mallory"))))))
 
 (deftest authority-scope-is-the-single-resource-covering-relation
   (testing "legacy wildcard resources are represented in authority.scope"
