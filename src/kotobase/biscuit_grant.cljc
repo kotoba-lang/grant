@@ -114,6 +114,10 @@
                   :else
                   {:ok? true
                    :scopes scopes
+                   ;; The PARSED scopes, kept because `permits?` decides with
+                   ;; them. `:scopes` above is the rendered form and stays for
+                   ;; callers that display or log a token's reach.
+                   :scope-vectors (set (:grant/scopes g))
                    :holder (:grant/holder g)
                    :expires-at exp-ms
                    :permissions (strip permission-prefix)
@@ -125,13 +129,46 @@
       {:ok? false :reason :malformed-token})))
 
 (defn permits?
-  "Does this grant carry `permission`?
+  "Does this grant reach `permission`?
 
-  Attenuation can only ever REMOVE scopes, so asking the grant is asking
-  the narrowest block that survived. There is no widening to guard against
-  here -- that property is the format's, not this function's."
+  `permission` is either a full resource -- `itonami://can/mcp:tools` -- or a
+  bare action, which is read under `permission-prefix` so that every caller
+  written before other apexes existed keeps working unchanged.
+
+  ## Why this asks `authority.scope/covers?`
+
+  It used to answer by membership in a set of strings built by cutting
+  `kotoba://can/` off the front of each scope. That is a decision, and
+  ADR-2608155000 puts the decision in exactly one place: `authority`'s
+  partial order. Two things followed from making it here instead.
+
+  The wildcard was lost. Measured 2026-08-31: a token carrying
+  `kotoba://can/*` renders, strips to `*`, and fails set membership against
+  `data:read` -- so a holder of a deliberately broad grant was refused, and
+  the old docstring's claim that there is no widening to guard against was
+  true only because widening had already been discarded. `covers?` restores
+  it: a trailing `:*` reaches any strictly longer scope sharing the prefix.
+
+  And the apex could not vary. ADR-2608311600 fixes the capability scheme at
+  `<apex>://can/<action>`, and `authority.scope/parse` already puts the apex
+  in segment 0 -- so nothing needs a per-apex constant or a per-apex
+  argument. The prefixes below become a convenience for one apex's callers
+  rather than the mechanism.
+
+  Cross-apex separation is the property this must not lose, and it is the
+  partial order's: `kotoba://can/*` does not reach `itonami://can/anything`,
+  because the schemes differ in segment 0."
   [grant permission]
-  (boolean (and (:ok? grant) (contains? (:permissions grant) permission))))
+  (boolean
+   (and (:ok? grant)
+        (let [needed (cond
+                       (vector? permission) permission
+                       (not (string? permission)) nil
+                       (str/includes? permission "://") (authority-scope/parse permission)
+                       :else (authority-scope/parse (str permission-prefix permission)))]
+          (and needed
+               (some #(authority-scope/covers? % needed)
+                     (:scope-vectors grant)))))))
 
 (defn permits-object?
   "Does this grant reach the object at `cid`?
