@@ -34,7 +34,7 @@
   `grant.enroll/claim` refuses to decide without a possession proof. A health
   probe that cannot fail is not a gate, and an update flow whose gate cannot
   fail is a flow that installs anything."
-  (:require [clojure.set :as set]))
+  (:require [kotoba.lang.coll :as set]))
 
 ;; ── what changed decides the class ─────────────────────────────────────────
 
@@ -66,7 +66,7 @@
   carrying one is refused whole: a partially-understood update is the case where
   applying the understood half is worse than applying nothing."
   [kinds]
-  (set/difference (set kinds) (set (keys kind->class))))
+  (set/set-difference (set kinds) (set (keys kind->class))))
 
 ;; ── the step machine ───────────────────────────────────────────────────────
 

@@ -21,7 +21,14 @@
         ;; biscuit.wire / biscuit.authority. authority above is its other half.
         io.github.kotoba-lang/org-biscuitsec
         {:git/url "https://github.com/kotoba-lang/org-biscuitsec.git"
-         :git/sha "d4e35e6792e9d23bdd25f48006b2886424fd48b1"}}
+         :git/sha "d4e35e6792e9d23bdd25f48006b2886424fd48b1"}
+        ;; clojure.set replacement (stdlib substitution wave,
+        ;; adr-2809061500-clojure-namespace-to-kotoba-stdlib): pure data-layer
+        ;; helper, no engine/capability of its own, so it does not put the
+        ;; decision plane behind anything.
+        io.github.kotoba-lang/coll
+        {:git/url "https://github.com/kotoba-lang/coll.git"
+         :git/sha "9c223287998a59320f7b79a972c8198c14c6fab8"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner

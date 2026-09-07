@@ -11,7 +11,7 @@
   to run and which capabilities it is actually granted. The output is always
   a policy-decision map (`:aiueos/decision :grant` or `:deny`) — never a
   silent pass."
-  (:require [clojure.set :as set]
+  (:require [kotoba.lang.coll :as set]
             [clojure.string :as str]
             [grant.graph :as graph]
             [grant.surface :as surface]
@@ -176,13 +176,13 @@
    (let [overlay (or overlay {})]
      (cond-> default-policy
        (:aiueos/kernel-caps overlay)
-       (update :aiueos.policy/kernel-caps set/union (as-kw-set (:aiueos/kernel-caps overlay)))
+       (update :aiueos.policy/kernel-caps set/set-union (as-kw-set (:aiueos/kernel-caps overlay)))
 
        (:aiueos/grants overlay)
        (update :aiueos.policy/grants
                (fn [grants]
                  (reduce-kv (fn [acc id caps]
-                              (update acc id set/union (as-kw-set caps)))
+                              (update acc id set/set-union (as-kw-set caps)))
                             grants
                             (:aiueos/grants overlay))))
 
@@ -190,7 +190,7 @@
        (update :aiueos.policy/kagi-grants
                (fn [grants]
                  (reduce-kv (fn [acc id capabilities]
-                              (update acc id set/union (set capabilities)))
+                              (update acc id set/set-union (set capabilities)))
                             grants
                             (:aiueos/kagi-grants overlay))))
 
@@ -204,7 +204,7 @@
        (update :aiueos.policy/component-signers
                (fn [component-signers]
                  (reduce-kv (fn [acc id signers]
-                              (update acc id set/union (as-kw-set signers)))
+                              (update acc id set/set-union (as-kw-set signers)))
                             component-signers
                             (:aiueos/component-signers overlay))))
 
@@ -232,7 +232,7 @@
        (assoc :aiueos.policy/surface (name (:aiueos/surface overlay)))
 
        (:aiueos/net-allow overlay)
-       (update :aiueos.policy/net-allow set/union (as-kw-set (:aiueos/net-allow overlay)))))))
+       (update :aiueos.policy/net-allow set/set-union (as-kw-set (:aiueos/net-allow overlay)))))))
 
 (defn granted-to
   "Capabilities available to manifest `m`, presented by `signer` (the
@@ -278,7 +278,7 @@
         ;; included. `resolve-imports` reads the same lookup as
         ;; `(or ... #{})` eight lines down; these now agree.
         base (if active-surface
-               (set/intersection kernel-caps
+               (set/set-intersection kernel-caps
                                  (or (surface/offered-by-id active-surface) #{}))
                kernel-caps)
         id (:aiueos/component m)
@@ -288,7 +288,7 @@
                       (:aiueos.policy/require-signed policy) false
                       :else true)
         extra (if authorized? (get (:aiueos.policy/grants policy) id #{}) #{})]
-    (set/union base extra)))
+    (set/set-union base extra)))
 
 (defn- violation
   ([component kind message]
@@ -459,7 +459,7 @@
                      (str "effect " eff " is forbidden for " (name trust) " components")))
         requires (as-kw-set (:aiueos/requires m))
         dma-by-effect? (contains? effects :dma)
-        dma-by-import? (boolean (seq (set/intersection imports dma-family-imports)))
+        dma-by-import? (boolean (seq (set/set-intersection imports dma-family-imports)))
         dma? (or dma-by-effect? dma-by-import?)
         requires-iommu? (contains? requires :iommu)
         has-iommu? (or (contains? granted :iommu) (contains? resolved :iommu))
@@ -468,7 +468,7 @@
           [(violation id :dma-without-iommu
                       (if dma-by-import?
                         (str "DMA-family import(s) "
-                             (set/intersection imports dma-family-imports)
+                             (set/set-intersection imports dma-family-imports)
                              " require `:requires #{:iommu}` and an :iommu grant"
                              (when-not dma-by-effect?
                                " (this manifest never declared :aiueos/effects #{:dma} either)"))
@@ -482,8 +482,8 @@
         ;; this used to test: the four `surface-bound-provider-caps` reach the
         ;; network too, so testing one name confined one spelling and left the
         ;; others unconfined (aiueos#144).
-        net-would-grant (set/intersection network-reaching-caps
-                                          (set/union resolved granted))
+        net-would-grant (set/set-intersection network-reaching-caps
+                                          (set/set-union resolved granted))
         net-allow (as-string-set (or (:aiueos.policy/net-allow policy)
                                      (:aiueos/net-allow policy)))
         net-violations
@@ -507,7 +507,7 @@
             ;; with. Admission has already refused an empty allowlist above, so
             ;; this is present exactly when a network-reaching capability was
             ;; granted, and its `:allow` is never empty.
-            net-detail (let [granted-net (set/intersection network-reaching-caps caps)]
+            net-detail (let [granted-net (set/set-intersection network-reaching-caps caps)]
                          (when (seq granted-net)
                            {:capabilities granted-net :allow net-allow}))]
         (cond-> {:aiueos/decision :grant :aiueos/component id :aiueos/capabilities caps}
