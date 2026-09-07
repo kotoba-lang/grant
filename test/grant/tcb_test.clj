@@ -1,10 +1,10 @@
 (ns grant.tcb-test
-  (:require [kotoba.lang.edn]
+  (:require [kotoba.lang.edn :as edn]
             [clojure.test :refer [deftest is testing]]
             [grant.tcb :as tcb]))
 
 (deftest checked-in-tcb-has-no-drift
-  (is (= {:valid? true :files 29 :external 5 :errors []}
+  (is (= {:valid? true :files 29 :external 6 :errors []}
          (tcb/validate))
       "the counts are asserted, not bounded: an inventory that silently
        shrinks is the failure this namespace exists to catch"))
@@ -52,7 +52,7 @@
     (is (some #(= :digest-drift (:kind %)) errors))))
 
 (deftest the-adoption-record-is-read-not-believed
-  (let [on-disk (kotoba.lang.edn/read-string (slurp "security-adoption.edn"))]
+  (let [on-disk (edn/read-string (slurp "security-adoption.edn"))]
     (testing "the checked-in record agrees with the source it describes"
       (is (empty? (tcb/adoption-errors on-disk))))
 

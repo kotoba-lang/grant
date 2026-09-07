@@ -55,7 +55,7 @@
   turn a network outage into a fleet outage. Freshness gates **admission of a
   new set**, never continued use of the current one."
   (:require [grant.publisher :as publisher]
-            [clojure.set :as set]))
+            [kotoba.lang.coll :as set]))
 
 ;; ── two sequence spaces, two keys ──────────────────────────────────────────
 ;;
@@ -105,7 +105,7 @@
         previous (set previous-anchors)]
     (if (and (seq previous) accept-previous-until-ms now-ms
              (<= now-ms accept-previous-until-ms))
-      (set/union current previous)
+      (set/set-union current previous)
       current)))
 
 (defn keep-using?
@@ -151,7 +151,7 @@
          (if-not (publisher/admitted? verdict)
            verdict
            (let [live (count (:aiueos.publisher/live verdict))
-                 overlap (set/intersection anchors current)]
+                 overlap (set/set-intersection anchors current)]
              (cond
                (and (empty? current) (not (true? (:bootstrap? proposed))))
                (deny :no-current-set {:aiueos.anchors/set-id (:set-id proposed)})

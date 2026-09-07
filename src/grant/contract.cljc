@@ -4,7 +4,7 @@
   The namespace intentionally validates plain EDN maps without depending on a
   runtime host. Rust, JS, Python, Svelte, and host-specific code may provide
   adapters elsewhere, but this namespace owns the data authority."
-  (:require [clojure.set :as set]
+  (:require [kotoba.lang.coll :as set]
             [kotoba.abi.contract :as abi]
             #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])))
@@ -126,7 +126,7 @@
   #{:aiueos/contract :aiueos/wit :aiueos/adapter})
 
 (def component-boundary-keys
-  (set/union component-boundary-required-keys component-boundary-optional-keys))
+  (set/set-union component-boundary-required-keys component-boundary-optional-keys))
 
 (def required-component-imports
   #{:host/wasm-runner :host/filesystem :host/process :host/device :host/audit-sink})
@@ -141,7 +141,7 @@
   #{:aiueos/request :aiueos/response :aiueos/capability :aiueos/detail})
 
 (def component-port-keys
-  (set/union component-port-required-keys component-port-optional-keys))
+  (set/set-union component-port-required-keys component-port-optional-keys))
 
 (def manifest-required-keys
   #{:aiueos/component :aiueos/kind})
@@ -210,10 +210,10 @@
     :aiueos.manifest/deadline-ms :aiueos.manifest/priority})
 
 (def schedule-keys
-  (set/union schedule-input-keys schedule-derived-keys))
+  (set/set-union schedule-input-keys schedule-derived-keys))
 
 (def manifest-keys
-  (set/union manifest-required-keys manifest-optional-keys))
+  (set/set-union manifest-required-keys manifest-optional-keys))
 
 (def policy-decision-required-keys
   #{:aiueos/decision :aiueos/component})
@@ -222,7 +222,7 @@
   #{:aiueos/capabilities :aiueos/violations :aiueos/detail})
 
 (def policy-decision-keys
-  (set/union policy-decision-required-keys policy-decision-optional-keys))
+  (set/set-union policy-decision-required-keys policy-decision-optional-keys))
 
 (def audit-event-required-keys
   #{:aiueos/ts :aiueos/event :aiueos/component :aiueos/detail})
@@ -246,7 +246,7 @@
     :aiueos/proof})
 
 (def grant-keys
-  (set/union grant-required-keys grant-optional-keys))
+  (set/set-union grant-required-keys grant-optional-keys))
 
 (def run-plan-required-keys
   #{:aiueos/component :aiueos/manifest :aiueos/decision})
@@ -263,7 +263,7 @@
     :kotoba/execution-identity})
 
 (def run-plan-keys
-  (set/union run-plan-required-keys run-plan-optional-keys))
+  (set/set-union run-plan-required-keys run-plan-optional-keys))
 
 (def run-receipt-required-keys
   #{:aiueos/component :aiueos/status :aiueos/audit-events})
@@ -280,7 +280,7 @@
     :aiueos/detail})
 
 (def run-receipt-keys
-  (set/union run-receipt-required-keys run-receipt-optional-keys))
+  (set/set-union run-receipt-required-keys run-receipt-optional-keys))
 
 (def policy-contract-required-keys
   #{:aiueos.policy/id :aiueos.policy/authority :aiueos.policy/source-files
@@ -299,7 +299,7 @@
   #{:aiueos/detail})
 
 (def system-keys
-  (set/union system-required-keys system-optional-keys))
+  (set/set-union system-required-keys system-optional-keys))
 
 (def deployment-policy-optional-keys
   #{:aiueos/policy
