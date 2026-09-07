@@ -20,7 +20,7 @@
     stayed green. `:external-to-deps true` marks the boundaries that are not
     Clojure dependencies at all; it is required rather than inferred from
     absence, because a coordinate with a typo is also absent."
-  (:require [clojure.edn :as edn]
+  (:require [kotoba.lang.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import (java.security MessageDigest)))

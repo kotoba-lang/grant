@@ -28,7 +28,13 @@
         ;; decision plane behind anything.
         io.github.kotoba-lang/coll
         {:git/url "https://github.com/kotoba-lang/coll.git"
-         :git/sha "9c223287998a59320f7b79a972c8198c14c6fab8"}}
+         :git/sha "9c223287998a59320f7b79a972c8198c14c6fab8"}
+        ;; Bounded reader replacing ad-hoc `clojure.edn` call sites -- same
+        ;; safety property (dispatch forms forbidden), plus size/nesting/token
+        ;; bounds enforced going in and out.
+        io.github.kotoba-lang/edn
+        {:git/url "https://github.com/kotoba-lang/edn.git"
+         :git/sha "250f4dafa5f5c7fb3109703496a52866e2a62dcd"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner

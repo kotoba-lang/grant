@@ -1,5 +1,5 @@
 (ns grant.tcb-test
-  (:require [clojure.edn]
+  (:require [kotoba.lang.edn :as edn]
             [clojure.test :refer [deftest is testing]]
             [grant.tcb :as tcb]))
 
@@ -52,7 +52,7 @@
     (is (some #(= :digest-drift (:kind %)) errors))))
 
 (deftest the-adoption-record-is-read-not-believed
-  (let [on-disk (clojure.edn/read-string (slurp "security-adoption.edn"))]
+  (let [on-disk (edn/read-string (slurp "security-adoption.edn"))]
     (testing "the checked-in record agrees with the source it describes"
       (is (empty? (tcb/adoption-errors on-disk))))
 

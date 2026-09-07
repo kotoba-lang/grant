@@ -31,7 +31,7 @@
             [grant.graph :as graph]
             [grant.policy :as policy]
             [grant.surface :as surface]
-            #?(:clj [clojure.edn :as edn])
+            #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])))
 
 (def default-contract-resource
