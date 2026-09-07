@@ -1,7 +1,7 @@
 (ns grant.contract-test
   (:require [grant.contract :as contract]
             [grant.manifest :as manifest]
-            #?(:clj [clojure.edn :as edn])
+            #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])
             [clojure.test :refer [deftest is testing]]))
 
