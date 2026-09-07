@@ -9,9 +9,7 @@
 ;; `abi` supplies the shared component contract. Nothing else is needed, and
 ;; adding an engine here would put the decision plane behind one.
 {:paths ["src" "resources"]
- :deps {io.github.kotoba-lang/edn {:git/url "https://github.com/kotoba-lang/edn.git"
-                                   :git/sha "250f4dafa5f5c7fb3109703496a52866e2a62dcd"}
-        io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
+ :deps {io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
         io.github.kotoba-lang/abi {:git/url "https://github.com/kotoba-lang/abi.git"
                                    :git/sha "32ee84b2efc92478c846629c8d8319280eed506c"}
