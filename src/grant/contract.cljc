@@ -6,7 +6,7 @@
   adapters elsewhere, but this namespace owns the data authority."
   (:require [clojure.set :as set]
             [kotoba.abi.contract :as abi]
-            #?(:clj [clojure.edn :as edn])
+            #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])))
 
 (def component-boundary-resource

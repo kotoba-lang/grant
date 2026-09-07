@@ -2,7 +2,7 @@
   (:require [grant.cli :as cli]
             [grant.decide :as decide]
             [clojure.test :refer [deftest is testing]]
-            #?(:clj [clojure.edn :as edn]
+            #?(:clj [kotoba.lang.edn :as edn]
                :cljs [cljs.reader :as edn])))
 
 ;; ENTIRELY JVM-only for the same single reason as `grant.cli-test`: every

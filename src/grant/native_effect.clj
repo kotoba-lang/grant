@@ -3,7 +3,7 @@
 
   Hosted VM, Linux, JVM/FFM and the retained C reference kernel are useful
   oracles, but none is the production execution surface accepted here."
-  (:require [clojure.edn :as edn]
+  (:require [kotoba.lang.edn :as edn]
             [clojure.java.io :as io]))
 
 (def contract-resource "aiueos/native-effect-v1.edn")

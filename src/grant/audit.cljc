@@ -19,7 +19,7 @@
   gated, following the `grant.contract/load-component-boundary` pattern."
   (:require [clojure.string :as str]
             [kotoba.security.redaction :as redaction]
-            #?(:clj [clojure.edn :as edn])
+            #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])))
 
 (def default-log-dir-name

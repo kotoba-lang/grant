@@ -1,7 +1,7 @@
 (ns grant.cloud-test
   (:require [grant.cloud :as cloud]
             [grant.json :as json]
-            #?(:clj [clojure.edn :as edn])
+            #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))

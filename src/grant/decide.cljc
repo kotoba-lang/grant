@@ -26,7 +26,7 @@
   `{:aiueos.decide/error ...}` map if the request line itself was malformed
   EDN or missing `:aiueos.decide/command`."
   (:require [grant.cli :as cli]
-            #?(:clj [clojure.edn :as edn])
+            #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.string :as str])))
 
 #?(:clj
