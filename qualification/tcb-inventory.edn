@@ -24,7 +24,7 @@
   {:path "src/grant/causal_trust.cljc" :role :causal-trust-admission
    :sha256 "d9d1042ea087d5f9bbcd7263d0b9890f0637623ebb7e9e38b5c758cea20e5cfb"},
   {:path "src/grant/cli.cljc" :role :cli-command-contract
-   :sha256 "3215fc9530f202bee053c99c583e3d6bf7c32c4f4282df45ac97df0709234581"},
+   :sha256 "6add2e8050732053a6579ad560c14708cda1b7a19f92faadf17edb18d9d231df"},
   {:path "src/grant/clock.cljc" :role :trusted-time
    :sha256 "f9b6aa2cf8ef2e0d365a0b13eeace25c07ba2c04635cb1a5b473646518d63e16"},
   {:path "src/grant/cloud.cljc" :role :remote-authority-decision
@@ -52,7 +52,7 @@
   {:path "src/grant/manifest.cljc" :role :component-identity
    :sha256 "bf9cf0e6412fe5ca77a80429024baf282eedcac6b95f47b2ff1cd1f1a9569e21"},
   {:path "src/grant/native_effect.clj" :role :native-effect-qualification
-   :sha256 "52ce7a58f6b78b6375c871c943732b3a2ef8685b4d71ffaaf56cc7fbadd0d876"},
+   :sha256 "bb2312f06b5c0dd4585db28708f71272197ff5a08c4d44ed60e1735f4c2d3cbc"},
   {:path "src/grant/net.cljc" :role :network-origin-gate
    :sha256 "84a3f9a46d306188fafbcf48dd9f6759867e4dc5589ca426c03bfa23b71b02d1"},
   {:path "src/grant/ota.cljc" :role :update-composition
@@ -64,7 +64,7 @@
   {:path "src/grant/signing.cljc" :role :manifest-authenticity
    :sha256 "a7a3a81770ca2745fc54f68d9fa3e5302b8d1fa216ba37d904b16d310edbaeea"},
   {:path "src/grant/tcb.clj" :role :tcb-inventory-authority
-   :sha256 "4d59d2cce72f8fa09535524a21d2061a6f3ad94db509fabdc04a97a14f6488db"},
+   :sha256 "bd859b91e5ba390232348acd366ce23965350af62b32146ac2cd9be2e0d0cfd6"},
   {:path "src/grant/surface.cljc" :role :host-provider-surface
    :sha256 "6d268b11ba1989f0c7703f3844d5bb6bfd38e1ec5a614963df7217e86cce88a7"},
   {:path "src/grant/update.cljc" :role :update-admission
