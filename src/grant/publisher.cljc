@@ -52,7 +52,7 @@
   does not report `:timestamp-expired` as though a measurement had been taken.
   Without a `:clock`, `:now-ms` is used directly — which is the hosted profile,
   where a wall clock exists."
-  (:require [clojure.set :as set]
+  (:require [kotoba.lang.coll :as set]
             [grant.clock :as clock]))
 
 (def roles

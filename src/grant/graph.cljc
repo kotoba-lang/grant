@@ -11,7 +11,7 @@
 
   File loading (`system.aiueos.edn` -> manifests) stays a host adapter
   concern; this namespace only reasons over already-loaded manifest data."
-  (:require [clojure.set :as set]))
+  (:require [kotoba.lang.coll :as set]))
 
 (defn- component-id [m]
   (:aiueos/component m))
