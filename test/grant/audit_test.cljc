@@ -72,7 +72,10 @@
            path (audit/log-path dir)
            e1 (audit/audit-entry :service/log :deny "denied" 200)
            e2 (audit/audit-entry :service/log :reject "rejected" 201)]
-       (spit path (str (pr-str e1) "\n\n   \n" (pr-str e2) "\n"))
+       (spit path (str (binding [*print-namespace-maps* false] (pr-str e1))
+                 "\n\n   \n"
+                 (binding [*print-namespace-maps* false] (pr-str e2))
+                 "\n"))
        (is (= [e1 e2] (audit/read-log path))))))
 
 #?(:clj

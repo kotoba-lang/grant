@@ -66,10 +66,11 @@
 
 #?(:clj
    (defn handle-line
-     "handle-request, but taking and returning the raw EDN text of one
-     stdin/stdout line."
-     [contract line]
-     (pr-str (handle-request contract (read-request line)))))
+      "handle-request, but taking and returning the raw EDN text of one
+      stdin/stdout line."
+      [contract line]
+      (binding [*print-namespace-maps* false]
+        (pr-str (handle-request contract (read-request line))))))
 
 #?(:clj
    (defn -main

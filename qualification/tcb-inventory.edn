@@ -14,7 +14,7 @@
   {:path "src/grant/anchors.cljc" :role :peer-trust-lifecycle
    :sha256 "d90fc2e189844101eabad0ee8d2447456a5382ba4ea1b9e73c0c7f416698c63f"},
   {:path "src/grant/audit.cljc" :role :audit-emission
-   :sha256 "bf2eaa6e487b6dc3aa1dddd97b4dd4df1c6ba2b5bf46949065350e72b0773078"},
+   :sha256 "0915be114c7a97059a685dcb2ff1fe2190d2022d3fedb78b00c0b3c88177211e"},
   {:path "src/grant/authority.cljc" :role :principal-intent-decision-kernel
    :sha256 "9456f2d0813bb697979532c5b7ffe5d89d466417574cb8dc1d9887e783a6e9a6"},
   {:path "src/grant/boot_admission.cljc" :role :boot-artifact-admission
@@ -34,7 +34,7 @@
   {:path "src/grant/contract.cljc" :role :authority-schema
    :sha256 "c6dc6f02b768aa2734ed6eb03e4d4a52a4c1cbc4f78b413a550c0711f06b96bd"},
   {:path "src/grant/decide.cljc" :role :decision-subprocess-bridge
-   :sha256 "88e353ff4d8e5690b13eb971223082dd78d07333ca42214e38fdb099a848724a"},
+   :sha256 "122703a9d635946005c6cf3e491aaad741ae044d49c7877bcb8f3c99c8dcdc5e"},
   {:path "src/grant/deployment_profile.cljc" :role :production-admission
    :sha256 "b2bb3514fd3c838defa539107629660059b6ed22cde355d18d2e2d3004fe3a9e"},
   {:path "src/grant/enroll.cljc" :role :enrolment-admission
