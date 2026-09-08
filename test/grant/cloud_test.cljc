@@ -3,7 +3,7 @@
             [grant.json :as json]
             #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]))
 
 ;; CIDs and digests computed outside the code under test, so the decoder is
@@ -129,10 +129,10 @@
   (is (cloud/allowed? (cloud/admit-peer pinned kotobase)))
   (is (= :host (:aiueos.cloud/anchor-binding (cloud/admit-peer pinned kotobase))))
   (is (cloud/allowed? (cloud/admit-peer pinned (assoc kotobase :spki-sha256
-                                                      (str/upper-case pin-a)))))
+                                                      (str/upper pin-a)))))
   (is (cloud/allowed? (cloud/admit-peer
                        (assoc policy :aiueos.cloud/trust-anchors
-                              {"KOTOBASE.NET" {:pins #{(str/upper-case pin-a)}}})
+                              {"KOTOBASE.NET" {:pins #{(str/upper pin-a)}}})
                        kotobase))
       "the policy is normalised too, so a capitalised host is not a second host"))
 

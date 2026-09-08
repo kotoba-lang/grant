@@ -43,7 +43,7 @@
   should call kototama's safety gate first, then this namespace's
   `verify-one`/`verify-admission` — porting a second denylist here would
   duplicate, and risk drifting from, kototama's."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [grant.authority :as authority]
             [grant.audit :as audit]
             [grant.graph :as graph]

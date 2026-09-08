@@ -12,7 +12,7 @@
   a policy-decision map (`:aiueos/decision :grant` or `:deny`) — never a
   silent pass."
   (:require [kotoba.lang.coll :as set]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [grant.graph :as graph]
             [grant.surface :as surface]
             [kotoba.security.abac :as abac]

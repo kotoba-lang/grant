@@ -27,7 +27,7 @@
   EDN or missing `:aiueos.decide/command`."
   (:require [grant.cli :as cli]
             #?(:clj [kotoba.lang.edn :as edn])
-            #?(:clj [clojure.string :as str])))
+            #?(:clj [kotoba.lang.text :as str])))
 
 #?(:clj
    (defn- read-request

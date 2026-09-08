@@ -1,5 +1,5 @@
 (ns grant.audit-test
-  (:require [grant.audit :as audit]
+  (:require [kotoba.lang.text] [grant.audit :as audit]
             [grant.contract :as contract]
             [clojure.test :refer [deftest is testing]]
             #?(:clj [clojure.java.io :as io])))
@@ -96,5 +96,5 @@
        (audit/append! path entry)
        (is (= 1 (count (audit/read-log path))))
        (is (= [entry] (audit/read-log path)))
-       (is (= 1 (count (remove clojure.string/blank?
-                               (clojure.string/split-lines (slurp path)))))))))
+       (is (= 1 (count (remove kotoba.lang.text/blank?
+                               (kotoba.lang.text/split-lines (slurp path)))))))))

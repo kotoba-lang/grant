@@ -4,7 +4,7 @@
             [grant.graph :as graph]
             [grant.policy :as policy]
             [grant.signing :as signing]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]])
   #?(:clj (:import [java.security KeyPairGenerator Signature])))
 

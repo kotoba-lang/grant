@@ -26,7 +26,7 @@
     `hash`, `image`, `vm`) -- `check`/`compile` delegate to
     kototama/kotoba-clj (see `grant.broker`'s namespace docstring), `sign`
     is key-custody tooling, `image`/`vm` are native provisioning."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [grant.broker :as broker]
             [grant.graph :as graph]
             [grant.policy :as policy]
