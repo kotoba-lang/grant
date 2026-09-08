@@ -46,7 +46,7 @@
             [grant.json :as json]
             [grant.net :as net]
             [grant.policy :as policy]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def default-config
   "Origins and the alias name. Overridable per policy map — a deployment that
@@ -241,7 +241,7 @@
 ;; implementations of "which keys work today" is how one of them ends up wrong.
 
 (defn- hex-pins [pins]
-  (set (map #(str/lower-case (str/trim (str %))) pins)))
+  (set (map #(str/lower (str/trim (str %))) pins)))
 
 (defn- normalize-binding [v]
   (if (map? v)
@@ -270,7 +270,7 @@
       {:shape :none :by-host {} :pins #{} :malformed []}
 
       (map? declared)
-      (let [by-host (into {} (map (fn [[h v]] [(str/lower-case (str/trim (str h)))
+      (let [by-host (into {} (map (fn [[h v]] [(str/lower (str/trim (str h)))
                                                (normalize-binding v)]))
                           declared)
             all (into #{} (mapcat (fn [[_ b]] (into (:pins b) (:previous b)))) by-host)]
@@ -309,7 +309,7 @@
   not run to fall."
   [policy host]
   (let [{:keys [by-host]} (anchor-bindings policy)
-        binding (get by-host (str/lower-case (str/trim (str host))))]
+        binding (get by-host (str/lower (str/trim (str host))))]
     (anchors/usable-anchors {:current-anchors (:pins binding)
                              :previous-anchors (:previous binding)
                              :accept-previous-until-ms (:accept-previous-until-ms binding)
@@ -408,8 +408,8 @@
   proceed as though it had checked."
   [policy peer]
   (let [bindings (anchor-bindings policy)
-        measured (str/lower-case (str/trim (str (:spki-sha256 peer))))
-        host (str/lower-case (str/trim (str (:host peer))))]
+        measured (str/lower (str/trim (str (:spki-sha256 peer))))
+        host (str/lower (str/trim (str (:host peer))))]
     (cond
       (= :none (:shape bindings))
       (deny :no-trust-anchors {})
@@ -789,7 +789,7 @@
   `:body-unparsable`, which reads as \"the authority is broken\" when the truth
   is \"this client does not implement the thing it was sent\"."
   [response]
-  (let [ct (str/lower-case (str (:content-type response)))
+  (let [ct (str/lower (str (:content-type response)))
         body (str/triml (str (:body response)))]
     (boolean (or (str/includes? ct streaming-content-type)
                  (re-find #"^(?:event|data|id|retry):" body)))))

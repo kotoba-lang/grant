@@ -17,7 +17,7 @@
   (`log-path`, `append!`, `read-log`) is inherently a JVM/host adapter
   concern -- not portable to CLJS/kotoba-Wasm -- so it is `#?(:clj ...)`
   gated, following the `grant.contract/load-component-boundary` pattern."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [kotoba.security.redaction :as redaction]
             #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])))

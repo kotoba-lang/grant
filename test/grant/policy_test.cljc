@@ -1,7 +1,7 @@
 (ns grant.policy-test
   (:require [grant.policy :as policy]
             [grant.graph :as graph]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]))
 
 (deftest net-url-allowed-fails-closed-without-allowlist

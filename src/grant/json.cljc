@@ -40,7 +40,7 @@
   Object keys stay strings. Interning them as keywords would let a remote
   authority decide what keywords this machine holds, and would silently merge
   `\"a\"` with `:a`."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def default-limits
   "`:max-input-chars` is well under `aiueos.provider.cloud`'s body ceiling: a

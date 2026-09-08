@@ -38,7 +38,7 @@
   first use. This is a real degradation and is reported as such in the verdict
   rather than being smoothed over. A caller that requires provenance rejects a
   `:tofu` grant; a caller that does not may accept it knowingly."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 ;; ── device lifecycle ───────────────────────────────────────────────────────
 

@@ -39,7 +39,7 @@
   host-neutral even though the SHA-256 computation itself (over the actual
   loaded wasm bytes) is necessarily a JVM/host-adapter concern (see
   `grant.signing/sha256-hex`, consumed by `aiueos.execute`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 ;; -----------------------------------------------------------------------
 ;; error shape (reused from grant.contract's `{:path [...] :message "..."}`)
@@ -334,7 +334,7 @@
   against the bytes that actually got executed)."
   [m actual-sha256-hex]
   (when-let [declared (:aiueos/wasm-sha256 m)]
-    (when-not (= (str/lower-case declared) (str/lower-case (str actual-sha256-hex)))
+    (when-not (= (str/lower declared) (str/lower (str actual-sha256-hex)))
       {:aiueos/component (:aiueos/component m)
        :aiueos/kind :artifact-mismatch
        :aiueos/message (str "wasm bytes do not match declared :aiueos/wasm-sha256 (declared "

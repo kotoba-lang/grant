@@ -3,7 +3,7 @@
 
   Profile evidence is deliberately explicit and machine-checkable.  It is an
   admission prerequisite, not proof that the named controls are effective."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def profile-version 1)
 

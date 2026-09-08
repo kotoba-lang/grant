@@ -20,7 +20,7 @@
   narrowed away, and that appending cannot put it back."
   (:require [kotobase.biscuit-grant :as grant]
             [biscuit.wire :as wire]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             #?(:cljs ["@noble/curves/ed25519.js" :refer [ed25519]])))
 

@@ -9,7 +9,12 @@
 ;; `abi` supplies the shared component contract. Nothing else is needed, and
 ;; adding an engine here would put the decision plane behind one.
 {:paths ["src" "resources"]
- :deps {io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
+ :deps {
+        ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
+        ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
+        ;; this repo silently rides whatever a sibling happens to name.
+        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+       io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
         io.github.kotoba-lang/abi {:git/url "https://github.com/kotoba-lang/abi.git"
                                    :git/sha "32ee84b2efc92478c846629c8d8319280eed506c"}

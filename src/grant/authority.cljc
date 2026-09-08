@@ -7,7 +7,7 @@
   success, a capability *specification*.  The host broker remains responsible
   for turning that specification into an unforgeable runtime handle."
   (:require [authority.scope :as scope]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def input-keys
   #{:authority/principal :authority/actor :authority/intent

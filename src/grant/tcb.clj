@@ -22,7 +22,7 @@
     absence, because a coordinate with a typo is also absent."
   (:require [kotoba.lang.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.string :as str])
+            [kotoba.lang.text :as str])
   (:import (java.security MessageDigest)))
 
 (def inventory-path "qualification/tcb-inventory.edn")

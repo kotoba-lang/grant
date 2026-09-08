@@ -17,7 +17,7 @@
   (:require [authority.scope :as authority-scope]
             [biscuit.authority :as biscuit-authority]
             [biscuit.wire :as wire]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def permission-prefix "kotoba://can/")
 (def graph-prefix "kotoba://graph/")
@@ -58,7 +58,7 @@
   [authorization]
   (when (string? authorization)
     (let [[scheme value] (str/split (str/trim authorization) #"\s+" 2)]
-      (when (and value (= "biscuit" (str/lower-case (str scheme))))
+      (when (and value (= "biscuit" (str/lower (str scheme))))
         (str/trim value)))))
 
 (defn grant

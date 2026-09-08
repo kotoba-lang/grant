@@ -25,7 +25,7 @@
   written down, because the surprising part is that omitting it does not mean
   \"no deadline\"."
   (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]))
 
 (def ^:private scanned-roots ["test" "resources"])
