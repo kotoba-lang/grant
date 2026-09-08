@@ -84,7 +84,10 @@
        (when-let [parent (.getParentFile f)]
          (.mkdirs parent))
        (with-open [w (io/writer f :append true)]
-         (.write w (pr-str entry))
+         ;; *print-namespace-maps* false so namespaced keywords (:aiueos/ts)
+         ;; serialize as {:aiueos/ts ...} not the #:aiueos{...} dispatch
+         ;; shorthand, which kotoba.lang.edn's bounded reader refuses on read.
+         (.write w (binding [*print-namespace-maps* false] (pr-str entry)))
          (.write w "\n")))
      nil))
 

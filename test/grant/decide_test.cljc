@@ -36,11 +36,12 @@
             (:aiueos.decide/error (decide/handle-request contract {:aiueos.decide/request {}})))))
 
    (deftest handle-line-round-trips-through-edn-text
-     (let [m {:aiueos/component :service/log :aiueos/kind :service :aiueos/trust :verified
-              :aiueos/imports #{:log/write}}
-           line (pr-str {:aiueos.decide/command :verify :aiueos.decide/request {:aiueos/manifest m}})
-           response (edn/read-string (decide/handle-line contract line))]
-       (is (= :grant (:aiueos/decision response)))))
+       (let [m {:aiueos/component :service/log :aiueos/kind :service :aiueos/trust :verified
+                :aiueos/imports #{:log/write}}
+             line (binding [*print-namespace-maps* false]
+                    (pr-str {:aiueos.decide/command :verify :aiueos.decide/request {:aiueos/manifest m}}))
+             response (edn/read-string (decide/handle-line contract line))]
+         (is (= :grant (:aiueos/decision response)))))
 
    (deftest handle-line-never-throws-on-malformed-edn
      (testing "unreadable EDN text becomes an error response, not an exception"
