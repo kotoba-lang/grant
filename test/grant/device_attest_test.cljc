@@ -7,6 +7,7 @@
   Every refusal names its own reason, so a check that stops discriminating
   cannot pass by refusing for a different cause."
   (:require [grant.device-attest :as da]
+            [kotoba.lang.text :as text]
             [clojure.test :refer [deftest is testing]]))
 
 (def fields
@@ -19,10 +20,10 @@
          (da/signing-input fields))
       "the exact bytes both sides sign; changing this invalidates every signature")
   (testing "the domain separator is part of it"
-    (is (clojure.string/starts-with? (da/signing-input fields)
+    (is (text/starts-with? (da/signing-input fields)
                                      "aiueos-device-attest-v1\n")))
   (testing "every field is terminated, so there is no trailing-empty question"
-    (is (clojure.string/ends-with? (da/signing-input fields) "\n"))))
+    (is (text/ends-with? (da/signing-input fields) "\n"))))
 
 (deftest different-tuples-cannot-collide
   ;; The property the framing exists for: no two distinct (did, endpoint,

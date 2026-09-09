@@ -35,7 +35,7 @@
 
   Pure: strings in, a string or a named refusal out. No I/O, no crypto -- the
   caller signs the bytes and the verifier checks them."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def attest-domain
   "The domain separator. Changing it invalidates every signature made under
