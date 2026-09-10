@@ -109,3 +109,44 @@
   (is (pos? (da/exit-codes :rejected)))
   (is (zero? (da/exit-codes :proved)))
   (is (zero? (da/exit-codes :idle))))
+
+;; ── the heartbeat rule ────────────────────────────────────────────────────
+
+(def hb-fields
+  {:did "did:key:z6MkfakeDevice"
+   :endpoint "https://murakumo.cloud"
+   :body-sha256 "3b1f8c2e00000000000000000000000000000000000000000000000000000000"})
+
+(deftest the-signed-heartbeat-string-is-pinned
+  (is (= (str "aiueos-device-heartbeat-v1\n"
+              "did:key:z6MkfakeDevice\n"
+              "https://murakumo.cloud\n"
+              "3b1f8c2e00000000000000000000000000000000000000000000000000000000\n")
+         (da/heartbeat-signing-input hb-fields))))
+
+(deftest a-heartbeat-is-not-an-enrolment-proof
+  (testing "the two rules cannot produce the same bytes, whatever the fields"
+    ;; The point of a separate domain: a captured attest signature must not
+    ;; verify as a heartbeat. If these ever agree, one proof means two things.
+    (is (not= (da/signing-input {:did (:did hb-fields)
+                                 :endpoint (:endpoint hb-fields)
+                                 :nonce (:body-sha256 hb-fields)})
+              (da/heartbeat-signing-input hb-fields)))
+    (is (not (text/starts-with? (da/heartbeat-signing-input hb-fields)
+                                da/attest-domain)))))
+
+(deftest heartbeat-fields-are-bound-one-by-one
+  (doseq [[k v] {:did "did:key:z6MkotherDevice"
+                 :endpoint "https://elsewhere.example"
+                 :body-sha256 "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}]
+    (testing (str "changing " k " changes the signed bytes")
+      (is (not= (da/heartbeat-signing-input hb-fields)
+                (da/heartbeat-signing-input (assoc hb-fields k v)))))))
+
+(deftest a-heartbeat-field-that-cannot-be-framed-is-refused-by-name
+  (is (= {:error :field-blank}
+         (da/heartbeat-signing-input (assoc hb-fields :did ""))))
+  (is (= {:error :field-not-a-string}
+         (da/heartbeat-signing-input (assoc hb-fields :body-sha256 nil))))
+  (is (= {:error :field-contains-separator}
+         (da/heartbeat-signing-input (assoc hb-fields :endpoint "https://a\nhttps://b")))))
