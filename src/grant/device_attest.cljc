@@ -46,6 +46,19 @@
 
 (def ^:private framed-fields [:did :endpoint :nonce])
 
+(defn- framing-problem
+  "Why this set of fields cannot be framed unambiguously, or nil.
+
+  One implementation for every rule in this namespace. A second copy would be
+  a second answer to \"is this field safe to frame\", and the two would drift."
+  [ks fields]
+  (let [vs (map #(get fields %) ks)]
+    (cond
+      (not (every? string? vs)) :field-not-a-string
+      (some str/blank? vs) :field-blank
+      (some #(str/includes? % field-separator) vs) :field-contains-separator
+      :else nil)))
+
 (defn signing-input-problem
   "Why these fields cannot be framed unambiguously, or nil.
 
@@ -53,12 +66,7 @@
   different bugs in different places, and one reason for both would send the
   reader to the wrong one."
   [fields]
-  (let [vs (map #(get fields %) framed-fields)]
-    (cond
-      (not (every? string? vs)) :field-not-a-string
-      (some str/blank? vs) :field-blank
-      (some #(str/includes? % field-separator) vs) :field-contains-separator
-      :else nil)))
+  (framing-problem framed-fields fields))
 
 (defn signing-input
   "The exact string both sides sign over, UTF-8 encoded by the caller.
@@ -74,6 +82,66 @@
          did field-separator
          endpoint field-separator
          nonce field-separator)))
+
+
+;; ── the heartbeat a claimed device signs ──────────────────────────────────
+;;
+;; Enrolment answers "is this the device". Telemetry answers "and it is still
+;; here, and this is what it sees". The second one needs no credential either,
+;; for the same reason as the first: a report signed by the device key is
+;; worth exactly what the key is worth, and a shared collector token handed to
+;; every box is worth what the leakiest box is worth.
+;;
+;; ## A separate domain, not a reused one
+;;
+;; `aiueos-device-heartbeat-v1` is deliberately not `aiueos-device-attest-v1`.
+;; If both rules signed under one domain, a captured enrolment proof could be
+;; presented as a heartbeat (and the reverse), which is the exact "purpose"
+;; binding the attest rule above exists to provide. Domains are cheap; a proof
+;; that means two things is not.
+;;
+;; ## The body's digest, not the metrics' canonical form
+;;
+;; What is bound is the SHA-256 of the exact request body the device sends --
+;; the bytes on the wire, not a re-serialisation of a map. This namespace
+;; already records why: canonicalising a map across two runtimes depends on
+;; print order that "breaks silently past eight keys", and a signature check is
+;; the last place to put that. Hashing the literal bytes has no canonical form
+;; to disagree about; the verifier hashes what it received.
+;;
+;; Observation time and metrics are inside those bytes, so both are bound
+;; without being named here. Replay across time is not this rule's job --
+;; `devices/accept-heartbeat` already refuses an observation that is stale or
+;; future-dated, and it refuses it for a device that is not claimed.
+
+(def heartbeat-domain
+  "The domain separator for a signed heartbeat. Changing it invalidates every
+  heartbeat signature made under the old one, which is what a version bump is
+  for."
+  "aiueos-device-heartbeat-v1")
+
+(def ^:private heartbeat-framed-fields [:did :endpoint :body-sha256])
+
+(defn heartbeat-signing-input-problem
+  "Why a heartbeat's fields cannot be framed unambiguously, or nil."
+  [fields]
+  (framing-problem heartbeat-framed-fields fields))
+
+(defn heartbeat-signing-input
+  "The exact string both sides sign over for a heartbeat, UTF-8 encoded by the
+  caller.
+
+      aiueos-device-heartbeat-v1\\n<did>\\n<endpoint>\\n<body-sha256>\\n
+
+  `:body-sha256` is the lowercase hex SHA-256 of the request body as sent.
+  Returns the string, or `{:error <reason>}`."
+  [{:keys [did endpoint body-sha256] :as fields}]
+  (if-let [problem (heartbeat-signing-input-problem fields)]
+    {:error problem}
+    (str heartbeat-domain field-separator
+         did field-separator
+         endpoint field-separator
+         body-sha256 field-separator)))
 
 ;; ── what the device does with each answer ─────────────────────────────────
 
