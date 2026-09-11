@@ -87,7 +87,7 @@ those paths for existence, which is exactly why they are named here.
 ## Verify
 
 ```bash
-clojure -M:test
+kbb -M:test
 ```
 
 291 tests, 918 assertions at the split.

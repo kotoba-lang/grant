@@ -9,7 +9,7 @@
   `examples/computer/backing/surface.mjs` (ADR-0007) in the retired Rust
   crate -- applied here to capability decisions instead of computer-use
   actions. A native tender is expected to shell out to this process
-  per-invocation (`bb decide`) as its V1 integration; a long-lived process
+  per-invocation (`kbb -M:decide`) as its V1 integration; a long-lived process
   talking newline-delimited EDN over a persistent pipe is a later
   optimization, not implemented here.
 
