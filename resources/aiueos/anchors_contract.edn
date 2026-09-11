@@ -8,9 +8,9 @@
 ;; be handed one over a connection it has no way to judge.
 [{:db/id -1
   :aiueos.anchors/id :aiueos/default-anchors
-  :aiueos.anchors/source-files ["src/grant/anchors.cljc"]
-  :aiueos.anchors/composes ["src/grant/publisher.cljc"]
-  :aiueos.anchors/consumed-by ["src/grant/cloud.cljc" "src/aiueos/provider/cloud.clj"]
+  :aiueos.anchors/source-files ["src/grant/anchors.cljk"]
+  :aiueos.anchors/composes ["src/grant/publisher.cljk"]
+  :aiueos.anchors/consumed-by ["src/grant/cloud.cljk" "src/aiueos/provider/cloud.clj"]
   :aiueos.anchors/set-fields [:set-id :sequence :anchors :signatures :timestamp-ms
                               :digest-matches? :break-glass? :bootstrap?]
   :aiueos.anchors/decision-shapes #{:grant :deny}

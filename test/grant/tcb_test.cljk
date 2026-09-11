@@ -18,11 +18,11 @@
   (testing "the completeness check discriminates"
     (let [inventory (tcb/read-inventory)
           without (update inventory :tcb/files
-                          (fn [fs] (vec (remove #(= "src/grant/policy.cljc" (:path %)) fs))))
+                          (fn [fs] (vec (remove #(= "src/grant/policy.cljk" (:path %)) fs))))
           {:keys [valid? errors]} (tcb/validate without)]
       (is (false? valid?))
       (is (some #(and (= :source-file-not-in-tcb (:kind %))
-                      (= "src/grant/policy.cljc" (:path %)))
+                      (= "src/grant/policy.cljk" (:path %)))
                 errors)))))
 
 (deftest a-recorded-pin-that-is-not-the-resolved-pin-is-fail-closed
@@ -43,7 +43,7 @@
   (let [inventory (tcb/read-inventory)
         tampered (update inventory :tcb/files
                          (fn [fs] (mapv (fn [f]
-                                          (if (= "src/grant/broker.cljc" (:path f))
+                                          (if (= "src/grant/broker.cljk" (:path f))
                                             (assoc f :sha256 (apply str (repeat 64 "0")))
                                             f))
                                         fs)))

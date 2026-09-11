@@ -5,7 +5,7 @@
 ;; presented -- see the aiueos.enroll docstring.
 [{:db/id -1
   :aiueos.enroll/id :aiueos/default-enroll
-  :aiueos.enroll/source-files ["src/grant/enroll.cljc"]
+  :aiueos.enroll/source-files ["src/grant/enroll.cljk"]
   :aiueos.enroll/states #{:factory :claimed :released}
   :aiueos.enroll/transitions "{:factory #{:claimed}, :claimed #{:released}, :released #{:factory}}"
   :aiueos.enroll/qr-scheme "aiueos"

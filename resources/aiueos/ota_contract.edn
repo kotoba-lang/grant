@@ -8,8 +8,8 @@
 ;; time it was taken -- and every step re-checks the stamp.
 [{:db/id -1
   :aiueos.ota/id :aiueos/default-ota
-  :aiueos.ota/source-files ["src/grant/ota.cljc"]
-  :aiueos.ota/composes ["src/grant/publisher.cljc" "src/grant/update.cljc"]
+  :aiueos.ota/source-files ["src/grant/ota.cljk"]
+  :aiueos.ota/composes ["src/grant/publisher.cljk" "src/grant/update.cljk"]
   :aiueos.ota/admission-fields [:manifest-id :sequence :taken-ms :verdict]
   :aiueos.ota/rechecked-every-step? true
   :aiueos.ota/admission-expires? true

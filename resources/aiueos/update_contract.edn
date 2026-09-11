@@ -5,7 +5,7 @@
 ;; window, or explicit consent -- never on "probably fine".
 [{:db/id -1
   :aiueos.update/id :aiueos/default-update
-  :aiueos.update/source-files ["src/grant/update.cljc"]
+  :aiueos.update/source-files ["src/grant/update.cljk"]
   :aiueos.update/artifact-kinds [:component :guest :kernel :loader]
   :aiueos.update/kind->class "{:component :live, :guest :blue-green, :kernel :ab-reboot, :loader :ab-reboot}"
   :aiueos.update/classes #{:live :blue-green :ab-reboot}
