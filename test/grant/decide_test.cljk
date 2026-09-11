@@ -54,7 +54,7 @@
           ;; Do not rely on an undeclared Babashka task.  The repository has no
           ;; bb.edn; production callers and CI can invoke the namespace through
           ;; the same deps.edn classpath used by the application.
-          (let [pb (ProcessBuilder. ["clojure" "-M" "-m" "grant.decide"])
+          (let [pb (ProcessBuilder. ["kbb" "-M" "-m" "grant.decide"])
                 _ (.redirectErrorStream pb false)
                 proc (.start pb)
                 stdin (java.io.PrintWriter. (.getOutputStream proc) true)

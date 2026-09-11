@@ -26,7 +26,7 @@
                                         1 :a-leg-was-refused
                                         3 :a-leg-could-not-be-answered}
                            :pin-rotation
-                           {:measure "clojure -M:cloud-live pin https://<host>"
+                           {:measure "kbb -M:cloud-live pin https://<host>"
                             :then "move that host's :pins into :previous, put the
                                    measured key in :pins, and set
                                    :accept-previous-until-ms"

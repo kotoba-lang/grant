@@ -219,7 +219,7 @@
      Deliberately untyped (no `^java.security.PublicKey` return hint): that
      interface isn't in babashka/SCI's importable class set (unlike the
      concrete `KeyFactory`/`Signature`/`KeyPairGenerator` classes this
-     namespace does import), so a type hint here would break `bb test:cljc`
+     namespace does import), so a type hint here would break `kbb -M:test:cljc`
      even though the dynamic `.generatePublic`/`.initVerify` calls work fine
      under both `bb` and JVM Clojure. Mirrors `kagi.cacao`, which avoids the
      same hint for the same reason."
