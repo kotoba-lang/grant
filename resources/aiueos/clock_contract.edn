@@ -6,7 +6,7 @@
 ;; has three answers and :undecidable is never folded into either of the others.
 [{:db/id -1
   :aiueos.clock/id :aiueos/default-clock
-  :aiueos.clock/source-files ["src/grant/clock.cljc"]
+  :aiueos.clock/source-files ["src/grant/clock.cljk"]
   :aiueos.clock/sources [:signed :rtc :build-stamp :none]
   :aiueos.clock/readings #{:signed :rtc}
   :aiueos.clock/confidences #{:signed :rtc :lower-bound :none}
@@ -15,7 +15,7 @@
   :aiueos.clock/accept-needs :reading
   :aiueos.clock/reading-below-bound-is-rejected? true
   :aiueos.clock/anchor-requires-a-reading? true
-  :aiueos.clock/consumers ["src/grant/publisher.cljc"]
+  :aiueos.clock/consumers ["src/grant/publisher.cljk"]
   :aiueos.clock/assurance-gaps
   ["An RTC is a real reading and an attacker with physical access can set it.
     It is ranked below a signed timestamp for that reason, and a reading below

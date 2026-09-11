@@ -6,7 +6,7 @@
 ;; an admission is a verdict about a response a provider already received.
 [{:db/id -1
   :aiueos.cloud/id :aiueos/default-cloud
-  :aiueos.cloud/source-files ["src/grant/cloud.cljc" "src/grant/json.cljc"]
+  :aiueos.cloud/source-files ["src/grant/cloud.cljk" "src/grant/json.cljk"]
   ;; Two repositories since 2026-08-21 (root ADR-2608219500). The decision half
   ;; is here; the mechanism half and the operator gate are in `aiueos`, which
   ;; depends on this plane and is not depended on by it. The paths below name
@@ -110,7 +110,7 @@
           The live gate reads the environment and injects a header; the value
           reaches a request and nothing else."}
   :aiueos.cloud/json
-  {:reader "src/grant/json.cljc"
+  {:reader "src/grant/json.cljk"
    :refuses #{:duplicate-key :trailing-bytes :nan :infinity :leading-zero
               :bare-plus :control-character-in-string :integer-out-of-range
               :depth-exceeded :input-too-large}

@@ -6,8 +6,8 @@
 ;; boots was not checked at all (ADR-0048's remaining gap). This is that check.
 [{:db/id -1
   :aiueos.boot/id :aiueos/default-boot-admission
-  :aiueos.boot/source-files ["src/grant/boot_admission.cljc"]
-  :aiueos.boot/composes ["src/grant/publisher.cljc" "src/grant/ota.cljc"]
+  :aiueos.boot/source-files ["src/grant/boot_admission.cljk"]
+  :aiueos.boot/composes ["src/grant/publisher.cljk" "src/grant/ota.cljk"]
   :aiueos.boot/enforced-by ["src/aiueos/vm.cljc"]
   :aiueos.boot/required-kinds #{:kernel :initramfs}
   :aiueos.boot/decision-shapes #{:grant :deny}

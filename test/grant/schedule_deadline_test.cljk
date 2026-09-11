@@ -35,18 +35,18 @@
 
   Adding a name here is a claim about that file: it must not execute anything
   under the derived deadline."
-  {"test/grant/manifest_test.cljc"
+  {"test/grant/manifest_test.cljk"
    (str "the tests OF the derivation. They call normalize-schedule directly and "
         "assert what it produces from a schedule with no :deadline-ms, which is "
         "the behaviour this gate exists to make visible. Nothing here executes.")
 
-   "test/grant/contract_test.cljc"
+   "test/grant/contract_test.cljk"
    (str "contract validation, including a deliberately misspelled :deadline_ms "
         "as a negative fixture and a {:priority 0} schedule that carries no "
         "timing at all. These are checked as data; no manifest here reaches an "
         "executor, so no watchdog runs against them.")
 
-   "test/grant/schedule_deadline_test.clj"
+   "test/grant/schedule_deadline_test.cljk"
    (str "this gate itself. Its docstring and its exemption reasons quote "
         "schedule maps as prose -- there is no manifest in this file and "
         "nothing here is normalized or executed. It is listed rather than "

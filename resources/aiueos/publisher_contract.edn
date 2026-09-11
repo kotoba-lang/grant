@@ -5,7 +5,7 @@
 ;; Roles are TUF's, on purpose: same threat model, reused rather than reinvented.
 [{:db/id -1
   :aiueos.publisher/id :aiueos/default-publisher-trust
-  :aiueos.publisher/source-files ["src/grant/publisher.cljc"]
+  :aiueos.publisher/source-files ["src/grant/publisher.cljk"]
   :aiueos.publisher/roles #{:root :targets :snapshot :timestamp}
   :aiueos.publisher/questions [:threshold :revocation :monotonic-sequence :freshness]
   :aiueos.publisher/attack-answered
