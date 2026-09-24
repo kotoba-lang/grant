@@ -5,12 +5,11 @@
   bundle digest, preventing replay, rollback and forked updates. Delegated
   signer scopes must be a subset of an active delegation-capable parent.
   The materialized policy maps are directly consumable by grant.signing."
-  (:require [grant.signing :as signing])
-  (:import [java.nio.charset StandardCharsets]
+  (:require [kotoba.bytes :as kbytes] [grant.signing :as signing])
+  (:import
            [java.security KeyFactory KeyPair KeyPairGenerator PrivateKey
             PublicKey Signature]
-           [java.security.spec X509EncodedKeySpec]
-           [java.util Base64]))
+           [java.security.spec X509EncodedKeySpec]))
 
 (def bundle-version 1)
 
@@ -22,7 +21,7 @@
     (signing/hex-encode (drop (- (alength encoded) 32) encoded))))
 
 (defn public-key-base64 [^KeyPair key-pair]
-  (.encodeToString (Base64/getEncoder) (.getEncoded (.getPublic key-pair))))
+  (kbytes/base64-encode (.getEncoded (.getPublic key-pair))))
 
 (defn- canonical [value]
   (cond
@@ -44,8 +43,7 @@
   `:provenance/signature` — sign the *same* canonical form. A second
   canonicalizer would be a signature-confusion hazard, not a convenience."
   [document signature-key]
-  (.getBytes (pr-str (canonical (dissoc document signature-key)))
-             StandardCharsets/UTF_8))
+  (kbytes/utf8-bytes (pr-str (canonical (dissoc document signature-key)))))
 
 (defn document-digest
   "Hex SHA-256 of `document-bytes`. Unprefixed; callers that need a
@@ -63,7 +61,7 @@
     (.initSign signer private-key)
     (.update signer (document-bytes document signature-key))
     (assoc document signature-key
-           (.encodeToString (Base64/getEncoder) (.sign signer)))))
+           (kbytes/base64-encode (.sign signer)))))
 
 (defn bundle-digest [bundle]
   (document-digest bundle :signature))
@@ -74,7 +72,7 @@
 (defn- decode-public-key [encoded]
   (.generatePublic
    (KeyFactory/getInstance "Ed25519")
-   (X509EncodedKeySpec. (.decode (Base64/getDecoder) ^String encoded))))
+   (X509EncodedKeySpec. (kbytes/base64-decode-bytes ^String encoded))))
 
 (defn document-signature-valid?
   "Whether DOCUMENT's signature at SIGNATURE-KEY verifies over
@@ -89,7 +87,7 @@
                      (decode-public-key public-key)))
       (.update verifier (document-bytes document signature-key))
       (.verify verifier
-               (.decode (Base64/getDecoder) ^String (get document signature-key))))
+               (kbytes/base64-decode-bytes ^String (get document signature-key))))
     (catch Exception _ false)))
 
 (defn- signature-valid? [bundle root-public-key]

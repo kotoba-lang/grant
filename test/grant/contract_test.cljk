@@ -2,7 +2,7 @@
   (:require [grant.contract :as contract]
             [grant.manifest :as manifest]
             #?(:clj [kotoba.lang.edn :as edn])
-            #?(:clj [clojure.java.io :as io])
+            #?(:clj [kotoba.io :as io])
             [kotoba.test :refer [deftest is testing]]))
 
 ;; --- identities ------------------------------------------------------------

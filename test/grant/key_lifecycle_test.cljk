@@ -1,8 +1,8 @@
 (ns grant.key-lifecycle-test
-  (:require [grant.key-lifecycle :as lifecycle]
+  (:require [kotoba.bytes :as kbytes] [grant.key-lifecycle :as lifecycle]
             [grant.signing :as signing]
             [kotoba.test :refer [deftest is]])
-  (:import [java.nio.charset StandardCharsets]
+  (:import
            [java.security Signature]))
 
 (def now-ms 2000)
@@ -33,8 +33,7 @@
   (let [signer (Signature/getInstance "Ed25519")]
     (.initSign signer (.getPrivate key-pair))
     (.update signer
-             (.getBytes ^String (signing/signed-message manifest)
-                        StandardCharsets/UTF_8))
+             (kbytes/utf8-bytes ^String (signing/signed-message manifest)))
     (signing/hex-encode (.sign signer))))
 
 (defn- signed-manifest [signer-id key-pair]
