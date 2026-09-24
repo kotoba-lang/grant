@@ -1,6 +1,6 @@
 (ns grant.boot-admission-test
   (:require [grant.boot-admission :as boot]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def root {:keys #{"k1" "k2" "k3"} :threshold 2})
 (def sigs [{:key-id "k1" :verified? true :status-index 0}

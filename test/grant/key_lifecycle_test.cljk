@@ -1,7 +1,7 @@
 (ns grant.key-lifecycle-test
   (:require [grant.key-lifecycle :as lifecycle]
             [grant.signing :as signing]
-            [clojure.test :refer [deftest is]])
+            [kotoba.test :refer [deftest is]])
   (:import [java.nio.charset StandardCharsets]
            [java.security Signature]))
 

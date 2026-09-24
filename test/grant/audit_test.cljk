@@ -1,7 +1,7 @@
 (ns grant.audit-test
   (:require [kotoba.lang.text] [grant.audit :as audit]
             [grant.contract :as contract]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             #?(:clj [clojure.java.io :as io])))
 
 (deftest audit-entry-shape

@@ -1,7 +1,7 @@
 (ns grant.publisher-test
   (:require [grant.publisher :as p]
             [grant.clock :as clock]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def root {:keys #{"k1" "k2" "k3"} :threshold 2})
 (def bits [0 0 0 0])                       ; nobody revoked

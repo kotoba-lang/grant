@@ -1,6 +1,6 @@
 (ns grant.tcb-test
   (:require [kotoba.lang.edn :as edn]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [grant.tcb :as tcb]))
 
 (deftest checked-in-tcb-has-no-drift

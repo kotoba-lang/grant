@@ -1,5 +1,5 @@
 (ns grant.component-abi-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [grant.component-abi :as component-abi]))
 
 ;; `cljs.core.ExceptionInfo` does not resolve under SCI (nbb), so a

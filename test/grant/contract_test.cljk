@@ -3,7 +3,7 @@
             [grant.manifest :as manifest]
             #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 ;; --- identities ------------------------------------------------------------
 ;; These were "bafy-plan", "bafy-artifact" and so on: readable labels that are

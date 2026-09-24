@@ -1,6 +1,6 @@
 (ns grant.update-test
   (:require [grant.update :as u]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (deftest the-most-disruptive-kind-decides-the-class
   (is (= :live (u/update-class [:component])))

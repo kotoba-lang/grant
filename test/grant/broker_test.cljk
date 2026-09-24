@@ -5,7 +5,7 @@
             [grant.policy :as policy]
             [grant.signing :as signing]
             [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]])
+            [kotoba.test :refer [deftest is testing]])
   #?(:clj (:import [java.security KeyPairGenerator Signature])))
 
 ;; ───────── JVM test helpers: real Ed25519 keypairs (mirrors signing_test) ─────────

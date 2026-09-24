@@ -1,6 +1,6 @@
 (ns grant.native-effect-test
   (:require [grant.native-effect :as native-effect]
-            [clojure.test :refer [deftest is]]))
+            [kotoba.test :refer [deftest is]]))
 
 (def contract (native-effect/read-contract))
 

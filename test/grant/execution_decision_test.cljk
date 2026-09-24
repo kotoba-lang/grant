@@ -1,5 +1,5 @@
 (ns grant.execution-decision-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [grant.execution-decision :as decision]
             [grant.graph :as graph]
             [grant.policy :as policy]

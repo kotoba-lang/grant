@@ -28,7 +28,7 @@
             [grant.graph :as graph]
             [grant.policy :as policy]
             [grant.publisher :as publisher]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def offline
   "The machine, with nothing reachable: no origin admitted, no peer key named."

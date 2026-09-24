@@ -5,7 +5,7 @@
   ones a decision gets made on. Each negative here is a document a lenient
   parser reads happily and a shape a caller would then act on."
   (:require [grant.json :as json]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 ;; -- it reads what it should -----------------------------------------------
 

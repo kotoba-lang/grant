@@ -1,6 +1,6 @@
 (ns grant.manifest-test
   (:require [grant.manifest :as manifest]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 ;; `cljs.core.ExceptionInfo` does not resolve under SCI (nbb), so a
 ;; reader conditional naming it makes the whole namespace fail to LOAD on the

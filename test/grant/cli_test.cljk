@@ -1,6 +1,6 @@
 (ns grant.cli-test
   (:require [grant.cli :as cli]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 ;; ENTIRELY JVM-only, and the reason is one function.
 ;;
