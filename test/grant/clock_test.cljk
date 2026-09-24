@@ -1,6 +1,6 @@
 (ns grant.clock-test
   (:require [grant.clock :as c]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def build 1000000)
 (def ttl 86400000)

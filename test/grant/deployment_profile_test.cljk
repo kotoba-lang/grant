@@ -1,6 +1,6 @@
 (ns grant.deployment-profile-test
   (:require [grant.deployment-profile :as profile]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def research-evidence
   {:profile/version 1

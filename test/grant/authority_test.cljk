@@ -1,5 +1,5 @@
 (ns grant.authority-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [grant.authority :as authority]
             [grant.broker :as broker]
             [grant.policy :as policy]))

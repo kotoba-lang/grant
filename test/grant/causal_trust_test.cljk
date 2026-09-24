@@ -1,5 +1,5 @@
 (ns grant.causal-trust-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [grant.authority :as authority]
             [grant.causal-trust :as trust]
             [identity.causal :as causal]))

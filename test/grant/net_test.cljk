@@ -1,7 +1,7 @@
 (ns grant.net-test
   (:require [grant.net :as net]
             [grant.policy :as policy]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (deftest guarded-fetch-never-calls-fn-when-denied
   (let [called (atom false)

@@ -1,5 +1,5 @@
 (ns grant.kagi-policy-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [grant.kagi-policy :as kp]))
 
 (deftest aiueos-grants-reference-not-secret

@@ -1,6 +1,6 @@
 (ns grant.graph-test
   (:require [grant.graph :as graph]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def log-service
   {:aiueos/component :service/log :aiueos/kind :service

@@ -21,7 +21,7 @@
   (:require [kotobase.biscuit-grant :as grant]
             [biscuit.wire :as wire]
             [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             #?(:cljs ["@noble/curves/ed25519.js" :refer [ed25519]])))
 
 (def ^:private root-seed (vec (range 32)))

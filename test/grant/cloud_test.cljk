@@ -4,7 +4,7 @@
             #?(:clj [kotoba.lang.edn :as edn])
             #?(:clj [clojure.java.io :as io])
             [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 ;; CIDs and digests computed outside the code under test, so the decoder is
 ;; checked against an independent oracle rather than against itself:

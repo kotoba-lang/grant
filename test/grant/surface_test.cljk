@@ -1,6 +1,6 @@
 (ns grant.surface-test
   (:require [grant.surface :as surface]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (deftest known-surfaces-offer-caps-and-unknown-is-nil
   (is (contains? (surface/offered-by-id "robot") :topic/publish))

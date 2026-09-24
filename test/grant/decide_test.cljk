@@ -1,7 +1,7 @@
 (ns grant.decide-test
   (:require [grant.cli :as cli]
             [grant.decide :as decide]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             #?(:clj [kotoba.lang.edn :as edn]
                :cljs [cljs.reader :as edn])))
 

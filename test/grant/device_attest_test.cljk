@@ -8,7 +8,7 @@
   cannot pass by refusing for a different cause."
   (:require [grant.device-attest :as da]
             [kotoba.lang.text :as text]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def fields
   {:did "did:key:z6MkfakeDevice"

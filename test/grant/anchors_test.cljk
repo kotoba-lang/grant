@@ -1,7 +1,7 @@
 (ns grant.anchors-test
   (:require [grant.anchors :as anchors]
             [grant.cloud :as cloud]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def pin-a (apply str (repeat 64 "a")))
 (def pin-b (apply str (repeat 64 "b")))

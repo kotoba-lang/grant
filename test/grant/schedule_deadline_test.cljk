@@ -26,7 +26,7 @@
   \"no deadline\"."
   (:require [clojure.java.io :as io]
             [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def ^:private scanned-roots ["test" "resources"])
 

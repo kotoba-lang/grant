@@ -2,7 +2,7 @@
   (:require [grant.ota :as ota]
             [grant.publisher :as publisher]
             [grant.update :as update]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def root {:keys #{"k1" "k2"} :threshold 2})
 (def sigs [{:key-id "k1" :verified? true :status-index 0}

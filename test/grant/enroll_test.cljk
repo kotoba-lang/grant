@@ -1,6 +1,6 @@
 (ns grant.enroll-test
   (:require [grant.enroll :as e]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (def dev {:did "did:key:zAlice" :state :factory :token "T-123"
           :attested? false :first-seen-ms 0})

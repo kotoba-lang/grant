@@ -8,7 +8,7 @@
   boundary the change could have destroyed while making the other two pass)."
   (:require [kotobase.biscuit-grant :as grant]
             [authority.scope :as scope]
-            [clojure.test :refer [deftest is testing]]))
+            [kotoba.test :refer [deftest is testing]]))
 
 (defn- granting
   "A verified grant carrying exactly these resources."

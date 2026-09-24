@@ -1,6 +1,6 @@
 (ns grant.signing-test
   (:require [grant.signing :as signing]
-            [clojure.test :refer [deftest is testing]])
+            [kotoba.test :refer [deftest is testing]])
   #?(:clj (:import [java.security KeyPairGenerator Signature])))
 
 ;; ───────── JVM test helpers: real Ed25519 keypairs + raw signing ─────────
