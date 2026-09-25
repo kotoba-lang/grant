@@ -21,7 +21,7 @@
     Clojure dependencies at all; it is required rather than inferred from
     absence, because a coordinate with a typo is also absent."
   (:require [kotoba.lang.edn :as edn]
-            [clojure.java.io :as io]
+            [kotoba.io :as io]
             [kotoba.lang.text :as str])
   (:import (java.security MessageDigest)))
 
@@ -48,9 +48,9 @@
 (defn- source-files
   "Every Clojure source file under `src/`, as repo-relative paths."
   []
-  (->> (file-seq (io/file source-root))
-       (filter #(.isFile ^java.io.File %))
-       (map #(.getPath ^java.io.File %))
+  (->> (io/file-seq (io/file source-root))
+       (filter #(io/file? %))
+       (map #(io/path %))
        (filter #(re-find #"\.clj[cs]?$" %))
        sort))
 
@@ -62,7 +62,7 @@
   (mapcat (fn [{:keys [path role sha256]}]
             (let [f (io/file path)]
               (cond
-                (not (.exists f)) [{:kind :missing-file :path path}]
+                (not (io/exists? f)) [{:kind :missing-file :path path}]
                 (not (keyword? role)) [{:kind :missing-role :path path}]
                 (not= sha256 (sha256-file path))
                 [{:kind :digest-drift :path path
@@ -105,7 +105,7 @@
   "`grant.deployment-profile` -> `src/grant/deployment_profile.cljk|clj`."
   [sym]
   (let [base (str source-root "/" (-> (str sym) (str/replace "." "/") (str/replace "-" "_")))]
-    (first (filter #(.exists (io/file %)) [(str base ".cljc") (str base ".clj") (str base ".cljs")]))))
+    (first (filter #(io/exists? (io/file %)) [(str base ".cljc") (str base ".clj") (str base ".cljs")]))))
 
 (defn adoption-errors
   "The adoption record, against the source it describes.

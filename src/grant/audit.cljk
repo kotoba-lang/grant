@@ -20,7 +20,7 @@
   (:require [kotoba.lang.text :as str]
             [kotoba.security.redaction :as redaction]
             #?(:clj [kotoba.lang.edn :as edn])
-            #?(:clj [clojure.java.io :as io])))
+            #?(:clj [kotoba.io :as io])))
 
 (def default-log-dir-name
   "Default audit log directory name under a project/component root, mirroring
@@ -71,7 +71,7 @@
      `AuditLog::under`. Returns a `java.io.File`."
      [dir]
      (let [log-dir (io/file dir default-log-dir-name)]
-       (.mkdirs log-dir)
+       (io/mkdirs log-dir)
        (io/file log-dir default-log-file-name))))
 
 #?(:clj
@@ -81,8 +81,8 @@
      create+append mode, creating parent directories if needed."
      [path entry]
      (let [f (io/file path)]
-       (when-let [parent (.getParentFile f)]
-         (.mkdirs parent))
+       (when-let [parent (io/parent-file f)]
+         (io/mkdirs parent))
        (with-open [w (io/writer f :append true)]
          ;; *print-namespace-maps* false so namespaced keywords (:aiueos/ts)
          ;; serialize as {:aiueos/ts ...} not the #:aiueos{...} dispatch
@@ -98,7 +98,7 @@
      are skipped."
      [path]
      (let [f (io/file path)]
-       (if-not (.exists f)
+       (if-not (io/exists? f)
          []
          (with-open [r (io/reader f)]
            (vec

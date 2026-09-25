@@ -1,5 +1,5 @@
 (ns grant.audit-test
-  (:require [kotoba.lang.text] [grant.audit :as audit]
+  (:require [kotoba.io :as kio] [kotoba.lang.text] [grant.audit :as audit]
             [grant.contract :as contract]
             [kotoba.test :refer [deftest is testing]]
             #?(:clj [clojure.java.io :as io])))
@@ -36,9 +36,8 @@
 
 #?(:clj
    (defn- temp-dir []
-     (str (java.nio.file.Files/createTempDirectory
-           "aiueos-audit-test"
-           (make-array java.nio.file.attribute.FileAttribute 0)))))
+     (str (kio/temp-dir
+           "aiueos-audit-test"))))
 
 #?(:clj
    (deftest log-path-under-creates-dot-aiueos-dir

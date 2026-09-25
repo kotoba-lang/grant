@@ -1,5 +1,5 @@
 (ns grant.broker-test
-  (:require [grant.broker :as broker]
+  (:require [kotoba.bytes :as kbytes] [grant.broker :as broker]
             [grant.contract :as contract]
             [grant.graph :as graph]
             [grant.policy :as policy]
@@ -21,7 +21,7 @@
 #?(:clj
    (defn- sign-hex [priv ^String msg]
      (let [s (doto (Signature/getInstance "Ed25519") (.initSign priv))]
-       (.update s (.getBytes msg "UTF-8"))
+       (.update s (kbytes/utf8-bytes msg))
        (signing/hex-encode (.sign s)))))
 
 (def empty-graph (graph/build []))

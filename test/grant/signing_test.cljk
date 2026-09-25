@@ -1,5 +1,5 @@
 (ns grant.signing-test
-  (:require [grant.signing :as signing]
+  (:require [kotoba.bytes :as kbytes] [grant.signing :as signing]
             [kotoba.test :refer [deftest is testing]])
   #?(:clj (:import [java.security KeyPairGenerator Signature])))
 
@@ -31,7 +31,7 @@
      the raw 64-byte signature hex-encoded."
      [priv ^String msg]
      (let [s (doto (Signature/getInstance "Ed25519") (.initSign priv))]
-       (.update s (.getBytes msg "UTF-8"))
+       (.update s (kbytes/utf8-bytes msg))
        (signing/hex-encode (.sign s)))))
 
 ;; ───────── signed-message shape ─────────
