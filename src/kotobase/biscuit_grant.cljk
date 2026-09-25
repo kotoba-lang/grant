@@ -14,7 +14,7 @@
   policy it does not enforce.
 
   No crypto and no clock: `verify-fn` and `now-ms` are injected."
-  (:require [authority.scope :as authority-scope]
+  (:require [kotoba.bytes :as kbytes] [authority.scope :as authority-scope]
             [biscuit.authority :as biscuit-authority]
             [biscuit.wire :as wire]
             [kotoba.lang.text :as str]))
@@ -42,7 +42,7 @@
     (try
       (let [padded (str s (apply str (repeat (mod (- 4 (mod (count s) 4)) 4) "=")))
             raw #?(:cljs (js/atob (-> padded (str/replace "-" "+") (str/replace "_" "/")))
-                   :clj (String. (.decode (java.util.Base64/getDecoder)
+                   :clj (String. (kbytes/base64-decode-bytes
                                           ^String (-> padded (str/replace "-" "+")
                                                       (str/replace "_" "/")))
                                  "ISO-8859-1"))]

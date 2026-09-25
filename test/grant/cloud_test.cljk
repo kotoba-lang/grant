@@ -2,7 +2,7 @@
   (:require [grant.cloud :as cloud]
             [grant.json :as json]
             #?(:clj [kotoba.lang.edn :as edn])
-            #?(:clj [clojure.java.io :as io])
+            #?(:clj [kotoba.io :as io])
             [kotoba.lang.text :as str]
             [kotoba.test :refer [deftest is testing]]))
 
@@ -724,7 +724,7 @@
                             slurp edn/read-string first)
            named (:aiueos.cloud/source-files contract)]
        (is (some? contract) "resources/aiueos/cloud_contract.edn is on the classpath")
-       (is (.exists (io/file "deps.edn"))
+       (is (io/exists? (io/file "deps.edn"))
            (str "this test reads paths relative to the repository root; it was run "
                 "from " (System/getProperty "user.dir") " and cannot answer from there"))
        (is (<= 2 (count named))
@@ -733,7 +733,7 @@
        (doseq [path named]
          (is (str/starts-with? path "src/grant/")
              (str path " is not this repository's to check"))
-         (is (.exists (io/file path)) (str path " is named by the contract and does not exist"))))))
+         (is (io/exists? (io/file path)) (str path " is named by the contract and does not exist"))))))
 
 #?(:clj
    (deftest the-contract-declares-the-reasons-the-code-produces

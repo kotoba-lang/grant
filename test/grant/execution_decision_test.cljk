@@ -92,8 +92,7 @@
                                                      :aiueos/kind :agent})
                                              :result :permit))
               nil
-              (catch #?(:clj clojure.lang.ExceptionInfo
-                        :cljs js/Error)
+              (catch js/Error
                   e
                 (:reason (ex-data e)))))))
 
@@ -115,11 +114,9 @@
                      (assoc approval :db-basis (cid-of "other-basis"))
                      (assoc approval :input-cid (cid-of "other-input"))
                      (assoc approval :resources #{:different/write})]]
-      (is (thrown? #?(:clj clojure.lang.ExceptionInfo
-                      :cljs js/Error)
+      (is (thrown? js/Error
                    (decision/authorize-approval!
                     approval-plan permit mutated "2026-07-25T00:00:30Z"))))
-    (is (thrown? #?(:clj clojure.lang.ExceptionInfo
-                    :cljs js/Error)
+    (is (thrown? js/Error
                  (decision/authorize-approval!
                   approval-plan permit approval "2026-07-25T00:01:00Z")))))

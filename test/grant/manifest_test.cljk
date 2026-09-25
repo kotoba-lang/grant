@@ -56,22 +56,22 @@
   (is (= 65536 (:memory-pages (manifest/normalize-limits {:aiueos/limits {:memory-pages 65536}})))))
 
 (deftest limits-memory-pages-over-the-4gib-ceiling-errors
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (manifest/normalize-limits {:aiueos/limits {:memory-pages 65537}}))))
 
 (deftest limits-zero-memory-pages-errors
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (manifest/normalize-limits {:aiueos/limits {:memory-pages 0}}))))
 
 (deftest limits-non-integer-fuel-errors
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (manifest/normalize-limits {:aiueos/limits {:fuel 1.5}}))))
 
 (deftest limits-error-carries-the-path-and-message
   (try
     (manifest/normalize-limits {:aiueos/limits {:memory-pages 100000}})
     (is false "expected an ex-info to be thrown")
-    (catch #?(:clj clojure.lang.ExceptionInfo :cljs js/Error) e
+    (catch js/Error e
       (is (= [:aiueos/limits :memory-pages] (:path (ex-data e))))
       (is (string? (:message (ex-data e)))))))
 
@@ -87,12 +87,12 @@
          (manifest/normalize-quota {:aiueos/quota {:host-calls 10 :publishes 0}}))))
 
 (deftest quota-host-calls-must-be-at-least-one
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (manifest/normalize-quota {:aiueos/quota {:host-calls 0}}))))
 
 (deftest quota-publishes-may-be-zero-but-not-negative
   (is (= 0 (:publishes (manifest/normalize-quota {:aiueos/quota {:publishes 0}}))))
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (manifest/normalize-quota {:aiueos/quota {:publishes -1}}))))
 
 ;; -----------------------------------------------------------------------
@@ -136,7 +136,7 @@
              (manifest/normalize-schedule {:aiueos/schedule {:priority 10}})))))
 
 (deftest schedule-rejects-a-deadline-beyond-hard-watchdog-maximum
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (manifest/normalize-schedule
                 {:aiueos/schedule {:deadline-ms 30001}}))))
 
@@ -326,6 +326,6 @@
     (is (= {:bus "pci" :vendor "1af4" :device "1001"} (:aiueos/device n)))))
 
 (deftest normalize-throws-on-an-out-of-range-limit
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (manifest/normalize {:aiueos/component :a :aiueos/kind :app
                                      :aiueos/limits {:memory-pages 999999}}))))

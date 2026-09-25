@@ -21,8 +21,7 @@
               imports)))))
 
 (deftest unknown-component-import-fails-closed
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo
-                  :cljs js/Error)
+  (is (thrown? js/Error
                (component-abi/requested-capabilities!
                 #{:aiueos.component/unknown}))))
 
@@ -83,16 +82,13 @@
         requested {:target "https://api.example.test/v1" :operation :http/post
                    :max-bytes 4096 :max-items 20 :deadline-ms 5000
                    :audit-id "artifact-request"}]
-    (is (thrown? #?(:clj clojure.lang.ExceptionInfo
-                    :cljs js/Error)
+    (is (thrown? js/Error
                  (component-abi/narrow-abilities #{import} {import requested} {})))
-    (is (thrown? #?(:clj clojure.lang.ExceptionInfo
-                    :cljs js/Error)
+    (is (thrown? js/Error
                  (component-abi/narrow-ability
                   requested
                   (assoc requested :target "https://attacker.example"))))
-    (is (thrown? #?(:clj clojure.lang.ExceptionInfo
-                    :cljs js/Error)
+    (is (thrown? js/Error
                  (component-abi/narrow-ability
                   requested
                   (assoc requested :operation :http/get))))))

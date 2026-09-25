@@ -7,7 +7,7 @@
   (:require [kotoba.lang.coll :as set]
             [kotoba.abi.contract :as abi]
             #?(:clj [kotoba.lang.edn :as edn])
-            #?(:clj [clojure.java.io :as io])))
+            #?(:clj [kotoba.io :as io])))
 
 (def component-boundary-resource
   "Classpath resource that owns the aiueos/component Wasm boundary."
@@ -1019,7 +1019,7 @@
 #?(:clj
    (defn validate-aiueos-provider-files [contracts provider-root]
      (let [root (io/file provider-root)
-           exists? (fn [path] (.exists (io/file root path)))
+           exists? (fn [path] (io/exists? (io/file root path)))
            errors
            (apply collect-errors
                   (for [[contract-index contract] (map-indexed vector contracts)

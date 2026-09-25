@@ -32,7 +32,7 @@
             [grant.policy :as policy]
             [grant.surface :as surface]
             #?(:clj [kotoba.lang.edn :as edn])
-            #?(:clj [clojure.java.io :as io])))
+            #?(:clj [kotoba.io :as io])))
 
 (def default-contract-resource
   "Classpath resource that owns the aiueos CLI command contract."

@@ -1,5 +1,5 @@
 (ns grant.native-effect-test
-  (:require [grant.native-effect :as native-effect]
+  (:require [kotoba.lang.error :as kerror] [grant.native-effect :as native-effect]
             [kotoba.test :refer [deftest is]]))
 
 (def contract (native-effect/read-contract))
@@ -14,7 +14,7 @@
 
 (deftest hosted-and-c-backed-evidence-fail-closed
   (is (thrown-with-msg?
-       clojure.lang.ExceptionInfo #"not C-free aiueos"
+       kerror/ExceptionInfo #"not C-free aiueos"
        (native-effect/verify-contract!
         (assoc contract :execution-surface :hosted-linux-c-loader))))
   (let [base {:execution-surface :aiueos-c-free-bare-metal-v1
@@ -23,16 +23,16 @@
               :imports [] :dynamic-dependencies []}]
     (is (= base (native-effect/verify-receipt! base)))
     (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo #"contains foreign code"
+         kerror/ExceptionInfo #"contains foreign code"
          (native-effect/verify-receipt!
           (assoc base :c-sources ["kernel/syscall.c"]))))
     (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo #"omits a foreign-code dimension"
+         kerror/ExceptionInfo #"omits a foreign-code dimension"
          (native-effect/verify-receipt! (dissoc base :imports))))))
 
 (deftest qualification-cannot-precede-c-free-runtime-evidence
   (is (thrown-with-msg?
-       clojure.lang.ExceptionInfo #"evidence is incomplete"
+       kerror/ExceptionInfo #"evidence is incomplete"
        (native-effect/verify-contract!
         (-> contract
             (assoc :execution-status :qualified :gaps [])
