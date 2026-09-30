@@ -105,7 +105,7 @@
   "`grant.deployment-profile` -> `src/grant/deployment_profile.cljk|clj`."
   [sym]
   (let [base (str source-root "/" (-> (str sym) (str/replace "." "/") (str/replace "-" "_")))]
-    (first (filter #(io/exists? (io/file %)) [(str base ".cljc") (str base ".clj") (str base ".cljs")]))))
+    (first (filter #(io/exists? (io/file %)) [(str base ".cljk") (str base ".cljc") (str base ".clj") (str base ".cljs")]))))
 
 (defn adoption-errors
   "The adoption record, against the source it describes.
