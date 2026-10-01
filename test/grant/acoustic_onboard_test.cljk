@@ -41,7 +41,13 @@
       "too short")
   (is (= {:error :bad-device-key}
          (ao/parse-beacon (str "mk1|" code "|" fp "|" (subs device-key 0 42) "B")))
-      "43 characters whose last one cannot end a 32-byte key"))
+      "43 characters whose last one cannot end a 32-byte key")
+  (testing "the last character of a real key: any multiple of 4, not only A Q g w"
+    ;; these three come from generated X25519 keys; the first two end in k and E
+    (doseq [k ["dG_QpelgxnJjSD959joCryi9zha-uPl5EQdW6_5QwEk"
+               "-UbcLemQEGjZnTkV4l-Wz5LRM0pH_d6J3uWPq3P-UmE"
+               "Iqax8FHUtAkL0z9dDrcG-7YfIP6oLJN54PfSOg0WngQ"]]
+      (is (= {:code code :fp fp :key k} (ao/parse-beacon (str "mk1|" code "|" fp "|" k))) k))))
 
 (deftest anything-that-is-not-a-beacon-is-not-a-beacon
   (doseq [heard ["" "hello" "mk2|K7QX3M|2c3b85f8|x" "ack|K7QX3M" nil 42
@@ -67,7 +73,9 @@
   (testing "a field that could forge the framing is refused, not escaped"
     (is (= {:error :bad-code} (ao/binding {:code "K7QX\n3" :fp fp :label-secret label-secret})))
     (is (= {:error :bad-fingerprint} (ao/binding {:code code :fp "2c3b85f\n" :label-secret label-secret})))
-    (is (= {:error :bad-label-secret} (ao/binding {:code code :fp fp :label-secret "short"})))))
+    (is (= {:error :bad-label-secret} (ao/binding {:code code :fp fp :label-secret "short"})))
+    (is (= {:error :bad-label-secret} (ao/binding {:code code :fp fp :label-secret "AAECAwQFBgcICQoLDA0ODk"}))
+        "22 characters ending in k: a 16-byte secret ends in one of A Q g w")))
 
 (deftest hkdf-output-splits-into-key-and-iv
   (let [okm (kbytes/unhex okm-hex)

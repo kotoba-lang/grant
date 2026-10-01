@@ -64,12 +64,15 @@
 (def ^:private fp-re #"[0-9a-f]{8}")
 (def ^:private b64url-re #"[A-Za-z0-9_-]+")
 
-;; Unpadded base64url leaves unused low bits in the last character. 16 bytes are
-;; 22 characters (4 significant bits, so the last character's value is a multiple
-;; of 4); 32 bytes are 43 characters (2 significant bits, a multiple of 16). A
-;; string whose last character breaks that is not the encoding of any such key.
-(def ^:private last-of-16-bytes "AEIMQUYcgkosw048")
-(def ^:private last-of-32-bytes "AQgw")
+;; Unpadded base64url leaves unused low bits in the last character. 32 bytes are 256
+;; bits in 43 characters (258 bits): the last character carries 4 data bits and 2
+;; zero bits, so its value is a multiple of 4. 16 bytes are 128 bits in 22
+;; characters (132 bits): the last carries 2 data bits and 4 zero bits, a multiple
+;; of 16. A string whose last character breaks that is not the encoding of any
+;; such key. (Getting this the wrong way round rejected about three in four real
+;; X25519 keys; a generated key in the murakumo tests is what caught it.)
+(def ^:private last-of-32-bytes "AEIMQUYcgkosw048")
+(def ^:private last-of-16-bytes "AQgw")
 
 (defn- string-of-length? [s n] (and (string? s) (= n (count s))))
 
