@@ -3,7 +3,8 @@
  :decision "adr-2609111500-cljk-rename-all-clojure-source (com-junkawasaki/root 90-docs/adr; owner instruction 2026-09-11)"
  :rule "value = the extension the file had before the rename. A path ending in .clj.cljk or .cljs.cljk kept it in the name because both platform files existed (or the plain target was taken)."
  :origins
- {"src/grant/anchors.cljk" ".cljc"
+ {"src/grant/acoustic_onboard.cljk" ".cljc"
+  "src/grant/anchors.cljk" ".cljc"
   "src/grant/audit.cljk" ".cljc"
   "src/grant/authority.cljk" ".cljc"
   "src/grant/boot_admission.cljk" ".cljc"
@@ -47,6 +48,7 @@
   "test/grant/contract_test.cljk" ".cljc"
   "test/grant/decide_test.cljk" ".cljc"
   "test/grant/deployment_profile_test.cljk" ".cljc"
+  "test/grant/acoustic_onboard_test.cljk" ".cljc"
   "test/grant/device_attest_test.cljk" ".cljc"
   "test/grant/enroll_test.cljk" ".cljc"
   "test/grant/execution_decision_test.cljk" ".cljc"
