@@ -34,6 +34,7 @@
   "src/grant/surface.cljk" ".cljc"
   "src/grant/tcb.cljk" ".clj"
   "src/grant/update.cljk" ".cljc"
+  "src/grant/update_lifecycle.cljk" ".cljc"
   "src/kotobase/biscuit_grant.cljk" ".cljc"
   "test/grant/anchors_test.cljk" ".cljc"
   "test/grant/audit_test.cljk" ".cljc"
