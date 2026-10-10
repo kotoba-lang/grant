@@ -119,3 +119,14 @@ therefore ship here without an in-repository test.
 ## License
 
 Apache-2.0.
+
+## Target-neutral and distributed stack architecture
+
+Intersects requested, delegated and policy authority and returns decisions. Does not execute effects or depend on an OS/engine. Neutral descriptors and authority semantics are separate from target import binding; the current abi dependency remains until a compatible component migration. Placement, CID possession and successful replication never mint permission.
+
+See the [owner integration guide and dependency direction](docs/stack-architecture.md),
+[composition metadata](spec/stack-integration.edn), and
+[whole-stack refactor procedure](https://github.com/kotoba-lang/kotoba-lang/blob/main/docs/stack-refactor-procedure.md).
+The direction is adopted; runtime contract migration and qualification remain
+explicit, separately verified work. Tier labels are responsibility axes, not
+a single dependency ranking.
