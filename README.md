@@ -141,3 +141,9 @@ The [integration contract](spec/execution-profile-integration.edn) records this
 cutover. Existing v1 blocks/WIT/CIDs remain unchanged; v2 neutral identities
 require a verified target binding and fresh CID/signature. This change does not
 enable v2 runtime admission or claim Q9/native qualification.
+
+## Explicit v2 execution
+
+See [execution v2](docs/execution-v2.md) and [owner contract](spec/execution-v2.edn).
+New target bindings, authority-issued invocation/leases and authenticated admission
+are explicit APIs; existing v1 runtime defaults remain compatible.

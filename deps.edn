@@ -10,7 +10,10 @@
 ;; adding an engine here would put the decision plane behind one.
 {:paths ["src" "resources"]
  :deps {
-        io.github.kotoba-lang/kotoba-core-contracts {:git/url "https://github.com/kotoba-lang/kotoba-core-contracts.git" :git/sha "7d6a1183134fac7e8e2427f87d4250422b330563"}
+        ;; Canonical v2 execution blocks; content codecs, no engine dependency.
+        io.github.kotoba-lang/artifact {:git/url "https://github.com/kotoba-lang/artifact.git" :git/sha "70afa5725c244fb65f530b482c4ce7bb765c264d"}
+
+        io.github.kotoba-lang/kotoba-core-contracts {:git/url "https://github.com/kotoba-lang/kotoba-core-contracts.git" :git/sha "00cfa8e29aaa3408e6594c6a55fd46867acc8bfd"}
 
         ;; kotoba.lang.error replaced clojure.lang.ExceptionInfo here (2026-09-25).
         ;; An explicit floor: tools.deps takes the NEWEST sha it is shown.
@@ -34,7 +37,7 @@
        io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
         io.github.kotoba-lang/abi {:git/url "https://github.com/kotoba-lang/abi.git"
-                                   :git/sha "4dd0b7b9898cec5432bbe60c2904c1546e5f524a"}
+                                   :git/sha "4e67b6fabc9e8584cb127fdb71b3fc47e2eadc59"}
         io.github.kotoba-lang/authority {:git/url "https://github.com/kotoba-lang/authority.git"
                                          :git/sha "232eef9b7969aa5990f9b5e48b1184f078500781"}
         io.github.kotoba-lang/identity {:git/url "https://github.com/kotoba-lang/identity.git"
