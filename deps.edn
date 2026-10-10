@@ -10,6 +10,8 @@
 ;; adding an engine here would put the decision plane behind one.
 {:paths ["src" "resources"]
  :deps {
+        io.github.kotoba-lang/kotoba-core-contracts {:git/url "https://github.com/kotoba-lang/kotoba-core-contracts.git" :git/sha "7d6a1183134fac7e8e2427f87d4250422b330563"}
+
         ;; kotoba.lang.error replaced clojure.lang.ExceptionInfo here (2026-09-25).
         ;; An explicit floor: tools.deps takes the NEWEST sha it is shown.
         io.github.kotoba-lang/error {:git/sha "838dec56c9a5b74f9eec825a2fb28bda157f8cd3"}
@@ -32,7 +34,7 @@
        io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
         io.github.kotoba-lang/abi {:git/url "https://github.com/kotoba-lang/abi.git"
-                                   :git/sha "32ee84b2efc92478c846629c8d8319280eed506c"}
+                                   :git/sha "4dd0b7b9898cec5432bbe60c2904c1546e5f524a"}
         io.github.kotoba-lang/authority {:git/url "https://github.com/kotoba-lang/authority.git"
                                          :git/sha "232eef9b7969aa5990f9b5e48b1184f078500781"}
         io.github.kotoba-lang/identity {:git/url "https://github.com/kotoba-lang/identity.git"
