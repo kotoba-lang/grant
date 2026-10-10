@@ -5,7 +5,8 @@
    Component imports Aiueos may decide and which existing Aiueos capability a
    successful decision must contain. Kototama still owns engine-specific
    bindings."
-  (:require [kotoba.abi.contract :as abi]))
+  (:require [kotoba.abi.component :as abi]
+            [kotoba.core.execution :as execution]))
 
 (def component-import->capability
   "Closed, one-to-one authority vocabulary for every v1 Kotoba Component
@@ -55,8 +56,8 @@
   audit id is authority-owned, allowing policy to bind all resulting receipts
   to its own audit stream."
   [requested ceiling]
-  (when-not (and (abi/valid-ability? requested)
-                 (abi/valid-ability? ceiling)
+  (when-not (and (execution/valid-ability? requested)
+                 (execution/valid-ability? ceiling)
                  (= (:target requested) (:target ceiling))
                  (= (:operation requested) (:operation ceiling)))
     (throw (ex-info "Ability policy must match the requested target and operation"
@@ -79,11 +80,11 @@
   (when-not (and (set? imports)
                  (map? requested)
                  (= imports (set (keys requested)))
-                 (every? abi/valid-ability? (vals requested))
+                 (every? execution/valid-ability? (vals requested))
                  (or (nil? policy)
                      (and (map? policy)
                           (= imports (set (keys policy)))
-                          (every? abi/valid-ability? (vals policy)))))
+                          (every? execution/valid-ability? (vals policy)))))
     (throw (ex-info "Ability policy must be complete and closed over Component imports"
                     {:phase :aiueos-ability-policy :imports imports})))
   (if (nil? policy)
@@ -102,7 +103,7 @@
   (when-not (and (= :grant (:aiueos/decision decision))
                  (set? imports) (map? abilities)
                  (= imports (set (keys abilities)))
-                 (every? abi/valid-ability? (vals abilities))
+                 (every? execution/valid-ability? (vals abilities))
                  (integer? now) (not (neg? now))
                  (pos-int? epoch) (pos-int? ttl-ms)
                  (string? lease-id) (seq lease-id)
