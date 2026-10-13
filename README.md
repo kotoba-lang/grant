@@ -95,10 +95,17 @@ and renaming a vocabulary is not, so only the namespaces moved. The same call
 was made when the pin registry became genpon and `:fleet/repos` stayed
 (ADR-2608147300).
 
-Three contract entries still name files that now live in the other repository
-(`src/aiueos/vm.cljc`, `src/aiueos/pid1.cljc`, `src/aiueos/provider/cloud.clj`,
-under `:enforced-by`, `:read-at-boot-by` and `:consumed-by`). Nothing checks
-those paths for existence, which is exactly why they are named here.
+Some contract entries name files that live in the other repository:
+`src/aiueos/vm.cljk`, `src/aiueos/pid1.cljk` and `src/aiueos/provider/cloud.cljk`
+(under `:enforced-by`, `:read-at-boot-by` and `:consumed-by`), and
+`cloud_contract.edn`'s `"kotoba-lang/aiueos: …"` strings
+(`src/aiueos/provider/cloud.cljk`, `src/aiueos/cloud_live.cljk`,
+`resources/aiueos/cloud_live.edn`). This repository cannot see that tree, so
+nothing here checks them. The `"kotoba-lang/aiueos: …"` strings in
+`cloud_contract.edn` are checked from the other side, by
+`aiueos.cloud-contract-paths-test` against the grant revision aiueos pins; the
+bare paths in the anchors and boot-admission contracts are checked by nothing,
+which is why they are named here.
 
 ## Verify
 
