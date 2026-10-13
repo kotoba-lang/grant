@@ -151,6 +151,7 @@
     :aiueos/source
     :aiueos/wasm
     :aiueos/wasm-sha256
+    :aiueos/artifact
     :aiueos/imports
     :aiueos/exports
     :aiueos/effects
@@ -185,6 +186,21 @@
   deliberately NOT closed here: no document in this repo owns that
   vocabulary, and guessing it from one driver would reject the next one."
   #{:bus :vendor :device})
+
+(def artifact-kinds
+  "Executable artifact profiles recognized by the portable manifest contract."
+  #{:kototama/program-v1 :wasm/component-v1})
+
+(def artifact-keys #{:kind :path :cid})
+
+(defn- artifact-identity? [artifact]
+  (and (map? artifact)
+       (= 3 (count artifact))
+       (every? artifact-keys (keys artifact))
+       (every? #(contains? artifact %) artifact-keys)
+       (contains? artifact-kinds (:kind artifact))
+       (string? (:path artifact)) (not (empty? (:path artifact)))
+       (string? (:cid artifact)) (not (empty? (:cid artifact)))))
 
 (def limits-keys
   "Keys `grant.manifest/normalize-limits` reads from `:aiueos/limits`."
@@ -475,6 +491,8 @@
                         ":aiueos/wasm must be a string")
            (field-error m :aiueos/wasm-sha256 string?
                         ":aiueos/wasm-sha256 must be a string")
+           (field-error m :aiueos/artifact artifact-identity?
+                        ":aiueos/artifact must contain exactly :kind, :path, and :cid; kind must be a supported portable artifact profile")
            (field-error m :aiueos/imports kw-coll?
                         ":aiueos/imports must be a keyword set or vector")
            (field-error m :aiueos/exports kw-coll?

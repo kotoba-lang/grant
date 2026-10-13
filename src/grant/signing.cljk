@@ -122,17 +122,16 @@
     :else (str id)))
 
 (defn signed-message
-  "The canonical bytes a manifest signature covers: the component id, a
-  newline, then `:aiueos/wasm-sha256`. Returns `nil` if `manifest` has no
-  `:aiueos/wasm-sha256` -- there is nothing to bind a signature to.
-
-  Inlined here (rather than depending on a not-yet-landed
-  `grant.manifest/signed-message`, since `grant.manifest` is being ported
-  concurrently by another agent) -- this is the same one-line computation,
-  derived directly from `:aiueos/component` + `:aiueos/wasm-sha256`."
+  "Canonical signed identity for an executable. Portable artifact manifests
+  bind `<id>\n<kind>\n<cid>` so the signature is independent of host paths
+  and operating systems. Legacy Wasm manifests retain `<id>\n<sha256>`."
   [manifest]
-  (when-let [sha (:aiueos/wasm-sha256 manifest)]
-    (str (id->str (:aiueos/component manifest)) "\n" sha)))
+  (if-let [{:keys [kind cid]} (:aiueos/artifact manifest)]
+    (str (id->str (:aiueos/component manifest)) "\n" (if-let [kind-ns (namespace kind)]
+                           (str kind-ns "/" (name kind))
+                           (name kind)) "\n" cid)
+    (when-let [sha (:aiueos/wasm-sha256 manifest)]
+      (str (id->str (:aiueos/component manifest)) "\n" sha))))
 
 ;; ───────── result shape helpers ─────────
 

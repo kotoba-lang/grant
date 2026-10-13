@@ -64,6 +64,19 @@
    :aiueos/effects #{:storage}
    :aiueos/limits {:memory-pages 8 :fuel 1000000}})
 
+(deftest portable-artifact-contract
+  (let [artifact {:kind :kototama/program-v1
+                  :path "program.dagcbor"
+                  :cid (cid-of "artifact")}
+        valid (assoc minimal-manifest :aiueos/artifact artifact)]
+    (is (:valid? (contract/validate-manifest valid)))
+    (doseq [bad [(assoc artifact :engine :wasm)
+                 (assoc artifact :kind :unknown)
+                 (dissoc artifact :cid)
+                 (assoc artifact :cid "")]]
+      (is (false? (:valid? (contract/validate-manifest
+                            (assoc minimal-manifest :aiueos/artifact bad))))))))
+
 (deftest manifest-contract
   (testing "validates the minimal component manifest shape"
     (is (contract/manifest? minimal-manifest))

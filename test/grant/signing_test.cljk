@@ -42,6 +42,13 @@
   (is (= "app.notes\ndeadbeef"
          (signing/signed-message {:aiueos/component "app.notes" :aiueos/wasm-sha256 "deadbeef"}))))
 
+(deftest signed-message-binds-portable-artifact-identity
+  (is (= "app/notes\nkototama/program-v1\nbafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"
+         (signing/signed-message
+          {:aiueos/component :app/notes
+           :aiueos/artifact {:kind :kototama/program-v1 :path "program.dagcbor"
+                             :cid "bafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"}}))))
+
 (deftest signed-message-is-nil-without-wasm-sha256
   (is (nil? (signing/signed-message {:aiueos/component :app/notes}))))
 
