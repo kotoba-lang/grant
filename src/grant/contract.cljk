@@ -189,7 +189,7 @@
 
 (def artifact-kinds
   "Executable artifact profiles recognized by the portable manifest contract."
-  #{:kototama/program-v1 :wasm/component-v1})
+  #{:kototama/program-v1})
 
 (def artifact-keys #{:kind :path :cid})
 
@@ -493,6 +493,10 @@
                         ":aiueos/wasm-sha256 must be a string")
            (field-error m :aiueos/artifact artifact-identity?
                         ":aiueos/artifact must contain exactly :kind, :path, and :cid; kind must be a supported portable artifact profile")
+           (when (and (:aiueos/artifact m)
+                      (or (:aiueos/wasm m) (:aiueos/wasm-sha256 m)))
+             (err [:aiueos/artifact]
+                  ":aiueos/artifact cannot be combined with legacy Wasm artifact fields"))
            (field-error m :aiueos/imports kw-coll?
                         ":aiueos/imports must be a keyword set or vector")
            (field-error m :aiueos/exports kw-coll?

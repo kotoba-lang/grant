@@ -70,6 +70,8 @@
                   :cid (cid-of "artifact")}
         valid (assoc minimal-manifest :aiueos/artifact artifact)]
     (is (:valid? (contract/validate-manifest valid)))
+    (is (false? (:valid? (contract/validate-manifest
+                          (assoc valid :aiueos/wasm "legacy.wasm")))))
     (doseq [bad [(assoc artifact :engine :wasm)
                  (assoc artifact :kind :unknown)
                  (dissoc artifact :cid)
