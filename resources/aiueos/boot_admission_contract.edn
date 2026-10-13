@@ -8,7 +8,7 @@
   :aiueos.boot/id :aiueos/default-boot-admission
   :aiueos.boot/source-files ["src/grant/boot_admission.cljk"]
   :aiueos.boot/composes ["src/grant/publisher.cljk" "src/grant/ota.cljk"]
-  :aiueos.boot/enforced-by ["src/aiueos/vm.cljc"]
+  :aiueos.boot/enforced-by ["src/aiueos/vm.cljk"]
   :aiueos.boot/required-kinds #{:kernel :initramfs}
   :aiueos.boot/decision-shapes #{:grant :deny}
   :aiueos.boot/deny-reasons #{:no-release :kind-not-named :artifact-unmeasured

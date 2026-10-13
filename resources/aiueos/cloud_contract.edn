@@ -13,8 +13,8 @@
   ;; files in that repository on purpose -- a contract that stopped naming its
   ;; own mechanism the day the mechanism moved would be a contract about half a
   ;; story.
-  :aiueos.cloud/hosted-provider "kotoba-lang/aiueos: src/aiueos/provider/cloud.clj"
-  :aiueos.cloud/live-gate {:entry "kotoba-lang/aiueos: src/aiueos/cloud_live.cljc"
+  :aiueos.cloud/hosted-provider "kotoba-lang/aiueos: src/aiueos/provider/cloud.cljk"
+  :aiueos.cloud/live-gate {:entry "kotoba-lang/aiueos: src/aiueos/cloud_live.cljk"
                            :policy "kotoba-lang/aiueos: resources/aiueos/cloud_live.edn"
                            :alias :cloud-live
                            :run-by :operator

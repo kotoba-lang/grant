@@ -10,7 +10,7 @@
   :aiueos.anchors/id :aiueos/default-anchors
   :aiueos.anchors/source-files ["src/grant/anchors.cljk"]
   :aiueos.anchors/composes ["src/grant/publisher.cljk"]
-  :aiueos.anchors/consumed-by ["src/grant/cloud.cljk" "src/aiueos/provider/cloud.clj"]
+  :aiueos.anchors/consumed-by ["src/grant/cloud.cljk" "src/aiueos/provider/cloud.cljk"]
   :aiueos.anchors/set-fields [:set-id :sequence :anchors :signatures :timestamp-ms
                               :digest-matches? :break-glass? :bootstrap?]
   :aiueos.anchors/decision-shapes #{:grant :deny}
@@ -55,7 +55,7 @@
    :guest-path "/etc/aiueos/anchors.edn"
    :named-in-boot-edn :aiueos/anchors
    :staged-bytes :the-exact-bytes-that-were-digested
-   :read-at-boot-by "src/aiueos/pid1.cljc"
+   :read-at-boot-by "src/aiueos/pid1.cljk"
    :boot-outcomes {:absent "boots with no pins; :aiueos.anchors/present? false"
                    :named-and-unreadable "refuses to boot"
                    :named-and-valid ":aiueos.cloud/trust-anchors is set"}
