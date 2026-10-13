@@ -5,7 +5,8 @@
 
   A signature attests \"component `<id>` is exactly these bytes, vouched for
   by this signer\" -- it covers the canonical signed message: the component
-  id, a newline, then the wasm sha256 hex digest (see `signed-message`). The
+  id, a newline, then either a legacy Wasm digest or portable artifact
+  profile and CID (see `signed-message`). The
   signer is resolved to a public key via the policy signer registry
   (`:aiueos.policy/signers`, as produced by `grant.policy/parse-policy`).
   This namespace does verification only; signing (key custody) lives in
@@ -308,7 +309,7 @@
              msg (signed-message manifest)]
          (or
           (when (nil? msg)
-            (bad-signature component "signed manifest must declare :aiueos/wasm-sha256"))
+            (bad-signature component "signed manifest must declare :aiueos/wasm-sha256 or :aiueos/artifact"))
           (let [entry (get (:aiueos.policy/signers policy) signer)
                 key-decision
                 (signer-key-decision signer entry
