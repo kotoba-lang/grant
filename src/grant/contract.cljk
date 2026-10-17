@@ -391,7 +391,7 @@
 (defn- component-id? [x]
   (and (or (keyword? x)
            (and (string? x) (not (empty? x))))
-       (not-any? #{\newline \return} (str x)))
+       (not-any? #{\newline \return} (str x))))
 
 (defn- port-name? [x]
   (component-id? x))
