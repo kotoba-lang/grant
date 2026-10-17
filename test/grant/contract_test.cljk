@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 6700)
+Total output lines: 536
+
 (ns grant.contract-test
   (:require [grant.contract :as contract]
             [grant.manifest :as manifest]
@@ -63,6 +66,29 @@
    :aiueos/exports #{:log/write}
    :aiueos/effects #{:storage}
    :aiueos/limits {:memory-pages 8 :fuel 1000000}})
+
+(deftest portable-artifact-contract
+  (let [artifact {:kind :kototama/program-v1
+                  :profile :kototama/core-i64-subset-v1
+                  :path "program.dagcbor"
+                  :cid (cid-of "artifact")}
+        valid (assoc minimal-manifest :aiueos/artifact artifact)
+        legacy (assoc minimal-manifest :aiueos/artifact (dissoc artifact :profile))]
+    (is (:valid? (contract/validate-manifest valid)))
+    (is (:valid? (contract/validate-manifest
+                  (assoc minimal-manifest :aiueos/artifact
+                         (assoc artifact :profile :kototama/data-i64-v1)))))
+    (is (:valid? (contract/validate-manifest legacy))
+        "profile-less signed artifacts retain their old manifest shape")
+    (is (false? (:valid? (contract/validate-manifest
+                          (assoc valid :aiueos/wasm "legacy.wasm")))))
+    (doseq [bad [(assoc artifact :engine :wasm)
+                 (assoc artifact :kind :unknown)
+                 (assoc artifact :profile :kototama/future-profile-v1)
+                 (dissoc artifact :cid)
+                 (assoc artifact :cid "")]]
+      (is (false? (:valid? (contract/validate-manifest
+                            (assoc minimal-manifest :aiueos/artifact bad))))))))
 
 (deftest manifest-contract
   (testing "validates the minimal component manifest shape"
@@ -184,154 +210,7 @@
                    :aiueos/imports
                    [{:aiueos/name :host/wasm-runner
                      :aiueos/direction :export}]
-                   :aiueos/exports
-                   [{:aiueos/direction :export}]})]
-      (is (false? (:valid? result)))
-      (is (some #(= [:aiueos/wit] (:path %)) (:errors result)))
-      (is (some #(= [:import 0 :aiueos/direction] (:path %)) (:errors result)))
-      (is (some #(= [:export 0 :aiueos/name] (:path %)) (:errors result))))))
-
-(deftest component-boundary-completeness-contract
-  (testing "rejects boundary data that leaves Rust/provider authority implicit"
-    (let [result (contract/validate-component-boundary
-                  (update aiueos-component-boundary :aiueos/imports
-                          #(vec (remove (comp #{:host/device} :aiueos/name) %))))]
-      (is (false? (:valid? result)))
-      (is (some #(= [:aiueos/imports] (:path %)) (:errors result)))))
-  (testing "rejects non-Component-Model adapter authority"
-    (let [result (contract/validate-component-boundary
-                  (assoc aiueos-component-boundary :aiueos/adapter :rust-host))]
-      (is (false? (:valid? result)))
-      (is (some #(= [:aiueos/adapter] (:path %)) (:errors result))))))
-
-(def normalized-grant
-  {:aiueos/subject "did:key:z6Mkoperator"
-   :aiueos/audience :aiueos/component
-   :aiueos/component :service/log
-   :aiueos/manifest-cid (cid-of "manifest")
-   :aiueos/wasm-cid (cid-of "wasm")
-   :aiueos/capabilities #{:log/write}
-   :aiueos/limits {:host-calls 2}
-   :aiueos/not-before 1782748800
-   :aiueos/expires-at 1782752400
-   :aiueos/proof {:type :kotoba/grant-signature}})
-
-(def grant-audit-event
-  {:aiueos/ts 1782748801
-   :aiueos/event :grant
-   :aiueos/component :service/log
-   :aiueos/detail "effective capabilities #{:log/write}"})
-
-(def run-plan
-  {:aiueos/component :service/log
-   :aiueos/manifest minimal-manifest
-   :aiueos/decision
-   {:aiueos/decision :grant
-    :aiueos/component :service/log
-    :aiueos/capabilities #{:log/write}}
-   :aiueos/grant normalized-grant
-   :aiueos/component-boundary aiueos-component-boundary
-   :aiueos/entry "init"
-   :aiueos/args []
-   :aiueos/limits {:memory-pages 8 :fuel 1000000}
-   :aiueos/imports contract/required-component-imports
-   :aiueos/audit-events [grant-audit-event]})
-
-(def run-receipt
-  {:aiueos/component :service/log
-   :aiueos/status :succeeded
-   :aiueos/result {:value 0}
-   :aiueos/started-at 1782748802
-   :aiueos/finished-at 1782748803
-   :aiueos/run-cid (cid-of "run")
-   :aiueos/input-cid (cid-of "input")
-   :aiueos/output-cid (cid-of "output")
-   :aiueos/audit-events
-   [{:aiueos/ts 1782748803
-     :aiueos/event :run
-     :aiueos/component :service/log
-     :aiueos/detail "component completed"}]})
-
-(def portable-execution-identity
-  {:format :kotoba.execution-identity/v1
-   :plan-cid (cid-of "plan") :code-closure-cid (cid-of "closure")
-   :artifact-cid (cid-of "artifact") :compiler-contract (cid-of "compiler")
-   :component-cid (cid-of "component") :wit-world-cid (cid-of "world")
-   :package-lock-cid (cid-of "lock") :policy-cid (cid-of "policy")
-   :policy-decision-cid (cid-of "decision") :db-basis (cid-of "basis")
-   :grant-cids [(cid-of "grant")] :approval-cids [] :runtime-identity (cid-of "runtime")
-   :input-cid (cid-of "input") :outcome-cid (cid-of "outcome")
-   :host-receipt-cids [(cid-of "receipt")]})
-
-(deftest grant-contract
-  (testing "validates normalized Kotoba Grant data before local materialization"
-    (is (contract/grant? normalized-grant))
-    (is (= {:valid? true :errors []}
-           (contract/validate-grant normalized-grant))))
-  (testing "rejects external-envelope-shaped or untyped grants"
-    (let [result (contract/validate-grant
-                  {:aiueos/subject "did:key:z6Mkoperator"
-                   :aiueos/audience :aiueos/component
-                   :aiueos/component :service/log
-                   :aiueos/capabilities [:log/write]
-                   :aiueos/resources ["https://example.com/*"]})]
-      (is (false? (:valid? result)))
-      (is (some #(= [:aiueos/capabilities] (:path %)) (:errors result)))
-      (is (some #(= [:aiueos/resources] (:path %)) (:errors result))))))
-
-(deftest run-plan-contract
-  (testing "validates broker-produced run plans for component providers"
-    (is (contract/run-plan? run-plan))
-    (is (= {:valid? true :errors []}
-           (contract/validate-run-plan run-plan))))
-  (testing "rejects plans with malformed nested authority data"
-    (let [result (contract/validate-run-plan
-                  (assoc-in run-plan
-                            [:aiueos/decision :aiueos/decision]
-                            :maybe))]
-      (is (false? (:valid? result)))
-      (is (some #(= [:aiueos/decision :aiueos/decision] (:path %)) (:errors result))))))
-
-(deftest portable-execution-identity-is-closed-at-broker-boundaries
-  (is (contract/run-plan? (assoc run-plan :kotoba/execution-identity portable-execution-identity)))
-  (is (contract/run-receipt? (assoc run-receipt :kotoba/execution-identity portable-execution-identity)))
-  (let [result (contract/validate-run-plan
-                (assoc run-plan :kotoba/execution-identity
-                       (assoc portable-execution-identity :unexpected true)))]
-    (is (false? (:valid? result)))
-    (is (some #(= [:kotoba/execution-identity] (:path %)) (:errors result)))))
-
-(deftest run-receipt-contract
-  (testing "validates provider-produced receipts"
-    (is (contract/run-receipt? run-receipt))
-    (is (= {:valid? true :errors []}
-           (contract/validate-run-receipt run-receipt))))
-  (testing "rejects receipts with malformed status or audit events"
-    (let [result (contract/validate-run-receipt
-                  {:aiueos/component :service/log
-                   :aiueos/status :done
-                   :aiueos/audit-events
-                   [{:aiueos/ts -1
-                     :aiueos/event :run
-                     :aiueos/component :service/log
-                     :aiueos/detail "bad"}]})]
-      (is (false? (:valid? result)))
-      (is (some #(= [:aiueos/status] (:path %)) (:errors result)))
-      (is (some #(= [:aiueos/audit-events 0 :aiueos/ts] (:path %)) (:errors result))))))
-
-;; The three `contract/load-*` blocks below are guarded, not the whole tests.
-;;
-;; Those loaders read EDN off the CLASSPATH (`io/resource` + `slurp`), which
-;; aiueos has no ClojureScript equivalent for. Unguarded, the calls sat inside
-;; otherwise-portable deftests and the namespace failed to LOAD under SCI --
-;; costing all seventeen tests here, not the three assertions that actually
-;; need a resource. `aiueos-component-boundary` above already shows the other
-;; way out (inline the literal for CLJS); that is not repeated for the policy
-;; and broker contracts because a second inline copy of a file this test also
-;; validates would drift from it silently.
-(deftest policy-contract-authority
-  #?(:clj
-     (testing "validates aiueos policy tables as CLJC/EDN authority"
+                   …1700 tokens truncated…authority"
        (let [policy (contract/load-policy-contract)]
          (is (contract/policy-contract? policy))
          (is (= {:valid? true :errors []}

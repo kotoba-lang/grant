@@ -290,12 +290,22 @@
     (str id)))
 
 (defn signed-message
-  "The canonical message a signature covers (ADR-0003):
-  `\"<id>\\n<wasm-sha256>\"`. `nil` if the manifest has no
-  `:aiueos/wasm-sha256` — nothing to bind, so it cannot be signed."
+  "Canonical signed identity for an executable. Legacy Wasm manifests retain
+  `<id>\n<wasm-sha256>`; portable artifacts bind `<id>\n<kind>\n<cid>`.
+  If an artifact declares a VM `:profile`, the signed form is
+  `<id>\n<kind>\n<profile>\n<cid>`, so a profile change invalidates the
+  signature. Profile-less artifacts retain their old signed identity for
+  verification compatibility. The CID is the content identity, so a
+  signature does not depend on a host path or a particular OS."
   [m]
-  (when-let [hash (:aiueos/wasm-sha256 m)]
-    (str (id->str (:aiueos/component m)) "\n" hash)))
+  (if-let [{:keys [kind profile cid]} (:aiueos/artifact m)]
+    (when (and kind cid)
+      (str (id->str (:aiueos/component m)) "\n"
+           (id->str kind) "\n"
+           (when profile (str (id->str profile) "\n"))
+           cid))
+    (when-let [hash (:aiueos/wasm-sha256 m)]
+      (str (id->str (:aiueos/component m)) "\n" hash))))
 
 (defn with-trust
   "A copy of manifest `m` with `:aiueos/trust` replaced by `trust` — used
@@ -339,6 +349,18 @@
        :aiueos/kind :artifact-mismatch
        :aiueos/message (str "wasm bytes do not match declared :aiueos/wasm-sha256 (declared "
                              declared ", actual " actual-sha256-hex ")")})))
+
+(defn verify-artifact-cid
+  "Compare the signed portable artifact CID with the CID recomputed from the
+  exact loaded canonical block. Returns nil on a match and a standard grant
+  violation on mismatch. A path is only a locator; the CID is the authority."
+  [m actual-cid]
+  (when-let [artifact (:aiueos/artifact m)]
+    (when-not (= (:cid artifact) (str actual-cid))
+      {:aiueos/component (:aiueos/component m)
+       :aiueos/kind :artifact-mismatch
+       :aiueos/message (str "loaded artifact CID does not match signed :aiueos/artifact CID (declared "
+                             (:cid artifact) ", actual " actual-cid ")")})))
 
 ;; -----------------------------------------------------------------------
 ;; normalize — the main entry point
