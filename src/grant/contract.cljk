@@ -151,6 +151,7 @@
     :aiueos/source
     :aiueos/wasm
     :aiueos/wasm-sha256
+    :aiueos/artifact
     :aiueos/imports
     :aiueos/exports
     :aiueos/effects
@@ -185,6 +186,29 @@
   deliberately NOT closed here: no document in this repo owns that
   vocabulary, and guessing it from one driver would reject the next one."
   #{:bus :vendor :device})
+
+(def artifact-kinds
+  "Executable artifact encodings recognized by the portable manifest contract."
+  #{:kototama/program-v1})
+
+(def artifact-vm-profiles
+  "Kototama execution profiles recognized by the portable manifest contract."
+  #{:kototama/core-i64-subset-v1
+    :kototama/data-i64-v1})
+
+(def artifact-required-keys #{:kind :path :cid})
+(def artifact-keys (conj artifact-required-keys :profile))
+
+(defn- artifact-identity? [artifact]
+  (and (map? artifact)
+       (every? artifact-keys (keys artifact))
+       (every? #(contains? artifact %) artifact-required-keys)
+       (contains? artifact-kinds (:kind artifact))
+       (or (not (contains? artifact :profile))
+           (contains? artifact-vm-profiles (:profile artifact)))
+       (string? (:path artifact)) (not (empty? (:path artifact)))
+       (string? (:cid artifact)) (not (empty? (:cid artifact)))
+       (not-any? #{\newline \return} (:cid artifact))))
 
 (def limits-keys
   "Keys `grant.manifest/normalize-limits` reads from `:aiueos/limits`."
@@ -360,9 +384,14 @@
 (defn- aiueos-broker-key? [k]
   (and (keyword? k) (= "aiueos.broker" (namespace k))))
 
+(defn- single-line? [s]
+  (and (string? s)
+       (not-any? #{\newline \return} s)))
+
 (defn- component-id? [x]
-  (or (keyword? x)
-      (and (string? x) (not (empty? x)))))
+  (and (or (keyword? x)
+           (and (string? x) (not (empty? x))))
+       (not-any? #{\newline \return} (str x)))
 
 (defn- port-name? [x]
   (component-id? x))
@@ -475,6 +504,12 @@
                         ":aiueos/wasm must be a string")
            (field-error m :aiueos/wasm-sha256 string?
                         ":aiueos/wasm-sha256 must be a string")
+           (field-error m :aiueos/artifact artifact-identity?
+                        ":aiueos/artifact must contain :kind, :path, and :cid, with an optional supported :profile")
+           (when (and (:aiueos/artifact m)
+                      (or (:aiueos/wasm m) (:aiueos/wasm-sha256 m)))
+             (err [:aiueos/artifact]
+                  ":aiueos/artifact cannot be combined with legacy Wasm artifact fields"))
            (field-error m :aiueos/imports kw-coll?
                         ":aiueos/imports must be a keyword set or vector")
            (field-error m :aiueos/exports kw-coll?

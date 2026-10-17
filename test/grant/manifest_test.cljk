@@ -249,6 +249,40 @@
          (manifest/signed-message {:aiueos/component "driver/sensor"
                                     :aiueos/wasm-sha256 "3b1f"}))))
 
+(deftest signed-message-binds-portable-artifact-kind-and-cid
+  (is (= "driver/sensor\nkototama/program-v1\nbafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"
+         (manifest/signed-message
+          {:aiueos/component :driver/sensor
+           :aiueos/artifact {:kind :kototama/program-v1
+                             :path "program.dagcbor"
+                             :cid "bafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"}}))))
+
+(deftest signed-message-binds-a-declared-vm-profile
+  (is (= "driver/sensor\nkototama/program-v1\nkototama/core-i64-subset-v1\nbafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"
+         (manifest/signed-message
+          {:aiueos/component :driver/sensor
+           :aiueos/artifact {:kind :kototama/program-v1
+                             :profile :kototama/core-i64-subset-v1
+                             :path "program.dagcbor"
+                             :cid "bafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"}}))))
+
+(deftest signed-message-binds-the-data-i64-vm-profile
+  (is (= "driver/sensor\nkototama/program-v1\nkototama/data-i64-v1\nbafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"
+         (manifest/signed-message
+          {:aiueos/component :driver/sensor
+           :aiueos/artifact {:kind :kototama/program-v1
+                             :profile :kototama/data-i64-v1
+                             :path "program.dagcbor"
+                             :cid "bafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"}}))))
+
+(deftest verify-artifact-cid-binds-loaded-block
+  (let [m {:aiueos/component :driver/sensor
+           :aiueos/artifact {:kind :kototama/program-v1 :path "program.dagcbor"
+                             :cid "bafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64"}}]
+    (is (nil? (manifest/verify-artifact-cid m "bafkreic6wtrsfonzv25l32xh2os7eoiw2i7jzzjri2y5ul77ndedxhwf64")))
+    (is (= :artifact-mismatch
+           (:aiueos/kind (manifest/verify-artifact-cid m "bafkreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))))))
+
 ;; -----------------------------------------------------------------------
 ;; with-trust (ADR-0003 signature elevation)
 ;; -----------------------------------------------------------------------

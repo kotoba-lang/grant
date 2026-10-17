@@ -5,7 +5,8 @@
 
   A signature attests \"component `<id>` is exactly these bytes, vouched for
   by this signer\" -- it covers the canonical signed message: the component
-  id, a newline, then the wasm sha256 hex digest (see `signed-message`). The
+  id, a newline, then either a legacy Wasm digest or portable artifact
+  profile and CID (see `signed-message`). The
   signer is resolved to a public key via the policy signer registry
   (`:aiueos.policy/signers`, as produced by `grant.policy/parse-policy`).
   This namespace does verification only; signing (key custody) lives in
@@ -121,18 +122,28 @@
     (string? id) id
     :else (str id)))
 
-(defn signed-message
-  "The canonical bytes a manifest signature covers: the component id, a
-  newline, then `:aiueos/wasm-sha256`. Returns `nil` if `manifest` has no
-  `:aiueos/wasm-sha256` -- there is nothing to bind a signature to.
+(defn- single-line? [s]
+  (and (string? s)
+       (not-any? #{\newline \return} s)))
 
-  Inlined here (rather than depending on a not-yet-landed
-  `grant.manifest/signed-message`, since `grant.manifest` is being ported
-  concurrently by another agent) -- this is the same one-line computation,
-  derived directly from `:aiueos/component` + `:aiueos/wasm-sha256`."
+(defn signed-message
+  "Canonical signed identity for an executable. Portable artifact manifests
+  bind `<id>\n<kind>\n<cid>`. When an artifact declares a VM `:profile`,
+  it is appended as `<id>\n<kind>\n<profile>\n<cid>`; changing execution
+  semantics therefore invalidates the signature. Profile-less artifacts keep
+  their original identity for verification compatibility, but a host may
+  refuse to execute them. Legacy Wasm manifests retain `<id>\n<sha256>`."
   [manifest]
-  (when-let [sha (:aiueos/wasm-sha256 manifest)]
-    (str (id->str (:aiueos/component manifest)) "\n" sha)))
+  (let [component (id->str (:aiueos/component manifest))]
+    (if-let [{:keys [kind profile cid]} (:aiueos/artifact manifest)]
+      (when (and kind cid (single-line? component) (single-line? cid))
+        (str component "\n"
+             (id->str kind) "\n"
+             (when profile (str (id->str profile) "\n"))
+             cid))
+      (when-let [sha (:aiueos/wasm-sha256 manifest)]
+        (when (and (single-line? component) (single-line? sha))
+          (str component "\n" sha)))))
 
 ;; ───────── result shape helpers ─────────
 
@@ -309,7 +320,7 @@
              msg (signed-message manifest)]
          (or
           (when (nil? msg)
-            (bad-signature component "signed manifest must declare :aiueos/wasm-sha256"))
+            (bad-signature component "signed manifest must declare :aiueos/wasm-sha256 or :aiueos/artifact"))
           (let [entry (get (:aiueos.policy/signers policy) signer)
                 key-decision
                 (signer-key-decision signer entry
