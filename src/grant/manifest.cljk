@@ -311,7 +311,7 @@
              cid))
       (when-let [hash (:aiueos/wasm-sha256 m)]
         (when (and (single-line? component) (single-line? hash))
-          (str component "\n" hash)))))
+          (str component "\n" hash))))))
 
 (defn with-trust
   "A copy of manifest `m` with `:aiueos/trust` replaced by `trust` — used
