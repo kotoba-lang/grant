@@ -289,6 +289,10 @@
     (if-let [ns (namespace id)] (str ns "/" (name id)) (name id))
     (str id)))
 
+(defn- single-line? [s]
+  (and (string? s)
+       (not-any? #{\newline \return} s)))
+
 (defn signed-message
   "Canonical signed identity for an executable. Legacy Wasm manifests retain
   `<id>\n<wasm-sha256>`; portable artifacts bind `<id>\n<kind>\n<cid>`.
@@ -298,14 +302,16 @@
   verification compatibility. The CID is the content identity, so a
   signature does not depend on a host path or a particular OS."
   [m]
-  (if-let [{:keys [kind profile cid]} (:aiueos/artifact m)]
-    (when (and kind cid)
-      (str (id->str (:aiueos/component m)) "\n"
-           (id->str kind) "\n"
-           (when profile (str (id->str profile) "\n"))
-           cid))
-    (when-let [hash (:aiueos/wasm-sha256 m)]
-      (str (id->str (:aiueos/component m)) "\n" hash))))
+  (let [component (id->str (:aiueos/component m))]
+    (if-let [{:keys [kind profile cid]} (:aiueos/artifact m)]
+      (when (and kind cid (single-line? component) (single-line? cid))
+        (str component "\n"
+             (id->str kind) "\n"
+             (when profile (str (id->str profile) "\n"))
+             cid))
+      (when-let [hash (:aiueos/wasm-sha256 m)]
+        (when (and (single-line? component) (single-line? hash))
+          (str component "\n" hash)))))
 
 (defn with-trust
   "A copy of manifest `m` with `:aiueos/trust` replaced by `trust` — used
