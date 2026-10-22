@@ -1,0 +1,109 @@
+;; grant.runtime-class — may this host run an app of this runtime class?
+;; (JUN-288, network-awai-apex ADR 0010 §2.5.)
+;;
+;; The runtime class of an itonami app is wasm, container or microvm (fune).
+;; Class codes are the tsukasa mask bits: wasm = 1, container = 2,
+;; microvm = 4. A node declares the classes it can accept in the tsukasa
+;; ledger (a mask 1..7); this module decides whether the host's policy lets
+;; one of them run. It is the second of ADR 0010's three conditions; the
+;; first (the declaration) is tsukasa's, the third (digest and manifest) the
+;; node agent's.
+;;
+;; The default policy allows wasm only. container and microvm run only when
+;; the host's policy allows them explicitly: an allow mask of 0..7, where 0
+;; allows nothing. Pure: no effects, small values in, a reason literal out.
+;;
+;; Written in the Amu selfhost seed subset (no ns docstring, no fn literal,
+;; declared result types), so the selfhost root compiler builds it; see
+;; README "Runtime class policy".
+(ns grant.runtime-class
+  (:export [class-code declared-mask? allow-mask? in-mask? default-allow-mask
+            class-verdict
+            test-class-codes test-masks test-default test-verdicts
+            test-precedence]))
+
+;; ---------------------------------------------------------------------------
+;; Reason literals. Pinned contract: callers match on these exact strings.
+
+(defn class-code [cls :string] :i64
+  (if (= cls "wasm") 1
+    (if (= cls "container") 2
+      (if (= cls "microvm") 4 0))))
+
+;; tsukasa's declaration range: 1..7, never 0.
+(defn declared-mask? [m :i64] :bool (if (< m 1) false (if (> m 7) false true)))
+
+;; a host allow mask: 0..7, 0 allows nothing.
+(defn allow-mask? [m :i64] :bool (if (< m 0) false (if (> m 7) false true)))
+
+;; Membership by enumeration, as in tsukasa: no bit arithmetic assumed.
+(defn in-mask? [m :i64 c :i64] :bool
+  (if (= c 1) (or (= m 1) (or (= m 3) (or (= m 5) (= m 7))))
+  (if (= c 2) (or (= m 2) (or (= m 3) (or (= m 6) (= m 7))))
+  (if (= c 4) (or (= m 4) (or (= m 5) (or (= m 6) (= m 7))))
+  false))))
+
+(defn default-allow-mask [] :i64 1)
+
+;; Precedence: unknown class, bad declaration, class not declared, bad allow
+;; mask, class not granted. "grant/ok" only when all pass.
+(defn class-verdict [cls :string declared :i64 allowed :i64] :string
+  (let [c (class-code cls)]
+    (if (= c 0) "grant/unknown-runtime-class"
+      (if (declared-mask? declared)
+        (if (in-mask? declared c)
+          (if (allow-mask? allowed)
+            (if (in-mask? allowed c) "grant/ok" "grant/runtime-class-not-granted")
+            "grant/bad-allow-mask")
+          "grant/runtime-class-not-declared")
+        "grant/bad-runtime-class-declaration"))))
+
+;; ---------------------------------------------------------------------------
+;; test-* : zero-arity, true when every assertion holds.
+
+(defn test-class-codes [] :bool
+  (if (and (= (class-code "wasm") 1)
+           (= (class-code "container") 2)
+           (= (class-code "microvm") 4)
+           (= (class-code "hako") 0)
+           (= (class-code "oci") 0)
+           (= (class-code "") 0)) true false))
+
+(defn test-masks [] :bool
+  (if (and (not (declared-mask? 0)) (declared-mask? 1) (declared-mask? 7)
+           (not (declared-mask? 8)) (not (declared-mask? -1))
+           (allow-mask? 0) (allow-mask? 7) (not (allow-mask? 8)) (not (allow-mask? -1))
+           (in-mask? 1 1) (not (in-mask? 1 2)) (not (in-mask? 1 4))
+           (in-mask? 6 2) (in-mask? 6 4) (not (in-mask? 6 1))
+           (in-mask? 7 1) (in-mask? 7 2) (in-mask? 7 4)
+           (not (in-mask? 7 3)) (not (in-mask? 0 1))) true false))
+
+;; the default policy: wasm runs, container and microvm do not.
+(defn test-default [] :bool
+  (let [d (default-allow-mask)]
+    (if (and (= d 1)
+             (= (class-verdict "wasm" 7 d) "grant/ok")
+             (= (class-verdict "container" 7 d) "grant/runtime-class-not-granted")
+             (= (class-verdict "microvm" 7 d) "grant/runtime-class-not-granted")) true false)))
+
+(defn test-verdicts [] :bool
+  (if (and (= (class-verdict "container" 2 2) "grant/ok")
+           (= (class-verdict "container" 3 3) "grant/ok")
+           (= (class-verdict "microvm" 4 5) "grant/ok")
+           (= (class-verdict "container" 1 7) "grant/runtime-class-not-declared")
+           (= (class-verdict "microvm" 3 7) "grant/runtime-class-not-declared")
+           (= (class-verdict "wasm" 1 0) "grant/runtime-class-not-granted")
+           (= (class-verdict "container" 7 5) "grant/runtime-class-not-granted")
+           (= (class-verdict "hako" 7 7) "grant/unknown-runtime-class")
+           (= (class-verdict "wasm" 0 1) "grant/bad-runtime-class-declaration")
+           (= (class-verdict "wasm" 8 1) "grant/bad-runtime-class-declaration")
+           (= (class-verdict "wasm" 1 8) "grant/bad-allow-mask")
+           (= (class-verdict "wasm" 1 -1) "grant/bad-allow-mask")) true false))
+
+;; earlier problems keep precedence over later ones.
+(defn test-precedence [] :bool
+  (if (and (= (class-verdict "oci" 0 -1) "grant/unknown-runtime-class")
+           (= (class-verdict "wasm" 0 -1) "grant/bad-runtime-class-declaration")
+           (= (class-verdict "container" 1 -1) "grant/runtime-class-not-declared")
+           (= (class-verdict "container" 2 -1) "grant/bad-allow-mask")
+           (= (class-verdict "container" 2 1) "grant/runtime-class-not-granted")) true false))

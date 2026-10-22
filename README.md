@@ -62,6 +62,53 @@ rewriting to make it hold — it was already true and simply unstated.
 | `grant.boot-admission` `grant.deployment-profile` `grant.native-effect` | may these artifacts boot, under which profile, with which effects |
 | `grant.cloud` `grant.net` `grant.kagi-policy` | may this component reach that remote authority, that URL, that secret reference |
 | `grant.audit` `grant.clock` `grant.cli` `grant.decide` `grant.component-abi` `grant.execution-decision` | the append-only record, trusted time, the CLI contract, and the bridges into all of it |
+| `grant.runtime-class` (`kotoba/grant/runtime_class.kotoba`) | may this host run an app of runtime class wasm / container / microvm (see below) |
+
+## Runtime class policy
+
+`kotoba/grant/runtime_class.kotoba` is the first Kotoba source here
+(JUN-288, network-awai-apex ADR 0010 §2.5). An itonami app declares one
+runtime class: `wasm`, `container` or `microvm` (fune). Class codes are the
+tsukasa mask bits, `wasm = 1`, `container = 2`, `microvm = 4`.
+
+`class-verdict` takes the class name, the node's tsukasa declaration (a mask
+`1..7`) and the host's allow mask (`0..7`, `0` allows nothing). It answers one
+pinned literal, in this precedence: `grant/unknown-runtime-class`,
+`grant/bad-runtime-class-declaration`, `grant/runtime-class-not-declared`,
+`grant/bad-allow-mask`, `grant/runtime-class-not-granted`, else `grant/ok`.
+`default-allow-mask` is `1`: by default only `wasm` runs, and `container` and
+`microvm` need the host's explicit allow. Digest and manifest checks are the
+node agent's, not this module's.
+
+It is written in the Amu selfhost seed subset, and its gate builds it with the
+pinned selfhost root compiler (no Node.js, nbb, JVM or babashka):
+
+```bash
+AMU=../amu; G=$(mktemp -d)   # G must be under a path podman can mount
+cp "$AMU/seed/bootstrap/aarch64-linux-static-root.elf" "$G/root.elf"
+F=kotoba/grant/runtime_class.kotoba
+end=$(grep -n 'test-precedence\]))' $F | cut -d: -f1)
+{ echo '(ns grant-runtime-class-gate (:export [main]))'
+  tail -n +$((end+1)) $F
+  cat <<'EOF'
+(defn main [] :i64
+  (+ (if (test-class-codes) 1 0) (+ (if (test-masks) 2 0)
+  (+ (if (test-default) 4 0) (+ (if (test-verdicts) 8 0)
+  (if (test-precedence) 16 0))))))
+EOF
+} > "$G/gate.kotoba"
+podman run --rm --platform linux/arm64 --network none -e KEXE_CAP_RESOURCES_35="$G" \
+  -v "$G:$G" -w "$G" docker.io/library/python:3.12-alpine sh -c \
+  "./root.elf compile $G/gate.kotoba --target aarch64-linux --output $G/gate.elf --format static \
+   && chmod +x gate.elf && KEXE_STRUCTURED_REPORT=1 ./gate.elf"
+#   → {:ok true, :target :aarch64-linux, :format :static, ...}
+#   → {:status :ok :result 31 ...}      (31 = all five test-* true)
+```
+
+Measured 2026-10-22 with amu main `f5b11a08` (root sha256 `8256bfd8…dc7`):
+`:result 31`; a mutated `test-default` gives `27`. Receipt:
+`docs/evidence/runtime-class-selfhost-gate-20261022.edn`. The `.cljk`
+namespaces and `kbb -M:test` below are unchanged and were not run.
 
 ## What is deliberately not here
 
