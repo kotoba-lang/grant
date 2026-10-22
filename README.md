@@ -62,22 +62,24 @@ rewriting to make it hold — it was already true and simply unstated.
 | `grant.boot-admission` `grant.deployment-profile` `grant.native-effect` | may these artifacts boot, under which profile, with which effects |
 | `grant.cloud` `grant.net` `grant.kagi-policy` | may this component reach that remote authority, that URL, that secret reference |
 | `grant.audit` `grant.clock` `grant.cli` `grant.decide` `grant.component-abi` `grant.execution-decision` | the append-only record, trusted time, the CLI contract, and the bridges into all of it |
-| `grant.runtime-class` (`kotoba/grant/runtime_class.kotoba`) | may this host run an app of runtime class wasm / container / microvm (see below) |
+| `grant.runtime-class` (`kotoba/grant/runtime_class.kotoba`) | may this host run an app of runtime class wasm / container (see below) |
 
 ## Runtime class policy
 
 `kotoba/grant/runtime_class.kotoba` is the first Kotoba source here
 (JUN-288, network-awai-apex ADR 0010 §2.5). An itonami app declares one
-runtime class: `wasm`, `container` or `microvm` (fune). Class codes are the
-tsukasa mask bits, `wasm = 1`, `container = 2`, `microvm = 4`.
+runtime class: `wasm` or `container` (named fune). Owner 2026-10-22 "hako =
+fune": a Linux OCI image is one class, and whether the node runs it as a
+container (Linux) or a microVM (aiueos) is the node's choice, not a class.
+Class codes are the tsukasa mask bits, `wasm = 1`, `container = 2`.
 
 `class-verdict` takes the class name, the node's tsukasa declaration (a mask
-`1..7`) and the host's allow mask (`0..7`, `0` allows nothing). It answers one
+`1..3`) and the host's allow mask (`0..3`, `0` allows nothing). It answers one
 pinned literal, in this precedence: `grant/unknown-runtime-class`,
 `grant/bad-runtime-class-declaration`, `grant/runtime-class-not-declared`,
 `grant/bad-allow-mask`, `grant/runtime-class-not-granted`, else `grant/ok`.
-`default-allow-mask` is `1`: by default only `wasm` runs, and `container` and
-`microvm` need the host's explicit allow. Digest and manifest checks are the
+`default-allow-mask` is `1`: by default only `wasm` runs, and `container`
+needs the host's explicit allow. Digest and manifest checks are the
 node agent's, not this module's.
 
 It is written in the Amu selfhost seed subset, and its gate builds it with the
